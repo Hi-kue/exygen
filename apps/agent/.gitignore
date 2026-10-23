@@ -1,0 +1,26 @@
+# Secrets and Environment
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+build/
+dist/
+
+# Node / JS
+node_modules/
+.pnpm-store/
+dist/
+.vite/
+apps/web/src/routeTree.gen.ts
+
+# OS/IDE
+.DS_Store
+.vscode/
+.idea/

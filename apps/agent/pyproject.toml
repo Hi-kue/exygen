@@ -5,6 +5,7 @@ description = "Exygen multi-agent orchestration and exam generation pipeline"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "openai>=3.37.0",
     "pydantic>=2.10.0",
 ]
 

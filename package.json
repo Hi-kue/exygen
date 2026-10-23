@@ -18,6 +18,7 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.4.5",
+		"@rolldown/binding-win32-x64-msvc": "^1.2.15",
 		"nx": "22.5.4",
 		"typescript": "5.9.3"
 	}
