@@ -1,0 +1,54 @@
+{
+	"name": "api",
+	"$schema": "../../node_modules/nx/schemas/project-schema.json",
+	"projectType": "application",
+	"sourceRoot": "apps/api/src/exygen_api",
+	"tags": ["lang:python", "scope:api"],
+	"implicitDependencies": ["agent"],
+	"targets": {
+		"dev": {
+			"executor": "nx:run-commands",
+			"continuous": true,
+			"options": {
+				"command": "uv run --package exygen-api fastapi dev apps/api/src/exygen_api/main.py --port 8000"
+			}
+		},
+		"serve": {
+			"executor": "nx:run-commands",
+			"options": {
+				"command": "uv run --package exygen-api fastapi run apps/api/src/exygen_api/main.py --port 8000"
+			}
+		},
+		"build": {
+			"executor": "nx:run-commands",
+			"outputs": ["{workspaceRoot}/dist/apps/api"],
+			"options": {
+				"command": "uv build --package exygen-api --out-dir dist/apps/api"
+			}
+		},
+		"lint": {
+			"executor": "nx:run-commands",
+			"options": {
+				"command": "uv run ruff check apps/api"
+			}
+		},
+		"format": {
+			"executor": "nx:run-commands",
+			"options": {
+				"command": "uv run ruff format --check apps/api"
+			}
+		},
+		"check": {
+			"executor": "nx:run-commands",
+			"options": {
+				"command": "uv run ruff check apps/api && uv run ruff format --check apps/api"
+			}
+		},
+		"test": {
+			"executor": "nx:run-commands",
+			"options": {
+				"command": "uv run --package exygen-api pytest apps/api/tests"
+			}
+		}
+	}
+}

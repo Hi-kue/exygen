@@ -1,0 +1,65 @@
+{
+	"name": "web",
+	"$schema": "../../node_modules/nx/schemas/project-schema.json",
+	"projectType": "application",
+	"sourceRoot": "apps/web/src",
+	"tags": ["lang:ts", "scope:web"],
+	"implicitDependencies": ["api"],
+	"targets": {
+		"dev": {
+			"executor": "nx:run-commands",
+			"continuous": true,
+			"options": {
+				"cwd": "apps/web",
+				"command": "pnpm run dev"
+			}
+		},
+		"build": {
+			"executor": "nx:run-commands",
+			"outputs": ["{projectRoot}/.output", "{projectRoot}/dist"],
+			"options": {
+				"cwd": "apps/web",
+				"command": "pnpm run build"
+			}
+		},
+		"preview": {
+			"executor": "nx:run-commands",
+			"options": {
+				"cwd": "apps/web",
+				"command": "pnpm run preview"
+			}
+		},
+		"typecheck": {
+			"executor": "nx:run-commands",
+			"options": {
+				"cwd": "apps/web",
+				"command": "pnpm run typecheck"
+			}
+		},
+		"lint": {
+			"executor": "nx:run-commands",
+			"options": {
+				"command": "pnpm exec biome lint apps/web"
+			}
+		},
+		"format": {
+			"executor": "nx:run-commands",
+			"options": {
+				"command": "pnpm exec biome format --check apps/web"
+			}
+		},
+		"check": {
+			"executor": "nx:run-commands",
+			"options": {
+				"command": "pnpm exec biome check apps/web"
+			}
+		},
+		"test": {
+			"executor": "nx:run-commands",
+			"options": {
+				"cwd": "apps/web",
+				"command": "pnpm run typecheck"
+			}
+		}
+	}
+}

@@ -1,0 +1,46 @@
+{
+	"name": "agent",
+	"$schema": "../../node_modules/nx/schemas/project-schema.json",
+	"projectType": "application",
+	"sourceRoot": "apps/agent/src/exygen_agent",
+	"tags": ["lang:python", "scope:agent"],
+	"targets": {
+		"dev": {
+			"executor": "nx:run-commands",
+			"options": {
+				"command": "uv run --package exygen-agent python -m exygen_agent"
+			}
+		},
+		"build": {
+			"executor": "nx:run-commands",
+			"outputs": ["{workspaceRoot}/dist/apps/agent"],
+			"options": {
+				"command": "uv build --package exygen-agent --out-dir dist/apps/agent"
+			}
+		},
+		"lint": {
+			"executor": "nx:run-commands",
+			"options": {
+				"command": "uv run ruff check apps/agent"
+			}
+		},
+		"format": {
+			"executor": "nx:run-commands",
+			"options": {
+				"command": "uv run ruff format --check apps/agent"
+			}
+		},
+		"check": {
+			"executor": "nx:run-commands",
+			"options": {
+				"command": "uv run ruff check apps/agent && uv run ruff format --check apps/agent"
+			}
+		},
+		"test": {
+			"executor": "nx:run-commands",
+			"options": {
+				"command": "uv run --package exygen-agent pytest apps/agent/tests"
+			}
+		}
+	}
+}

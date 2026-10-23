@@ -1,0 +1,36 @@
+[project]
+name = "exygen-workspace"
+version = "0.1.0"
+description = "Exygen monorepo Python workspace"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=8.3.4",
+    "ruff>=0.9.6",
+]
+
+[tool.uv.workspace]
+members = [
+    "apps/agent",
+    "apps/api",
+]
+
+[tool.uv.sources]
+exygen-agent = { workspace = true }
+exygen-api = { workspace = true }
+
+[tool.pytest.ini_options]
+testpaths = ["apps/agent/tests", "apps/api/tests"]
+pythonpath = ["apps/agent/src", "apps/api/src"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["apps/agent/src", "apps/api/src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]

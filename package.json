@@ -1,0 +1,24 @@
+{
+	"name": "exygen",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "nx run-many -t dev --projects=api,web",
+		"dev:web": "nx run web:dev",
+		"dev:api": "nx run api:dev",
+		"dev:agent": "nx run agent:dev",
+		"build": "nx run-many -t build",
+		"lint": "nx run-many -t lint",
+		"format": "nx run-many -t format",
+		"check": "nx run-many -t check",
+		"typecheck": "nx run-many -t typecheck",
+		"test": "nx run-many -t test",
+		"graph": "nx graph"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.4.5",
+		"nx": "22.5.4",
+		"typescript": "5.9.3"
+	}
+}

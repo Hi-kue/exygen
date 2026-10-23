@@ -1,0 +1,48 @@
+{
+	"$schema": "https://biomejs.dev/schemas/2.4.5/schema.json",
+	"vcs": {
+		"enabled": true,
+		"clientKind": "git",
+		"useIgnoreFile": true
+	},
+	"files": {
+		"ignoreUnknown": true,
+		"includes": [
+			"nx.json",
+			"package.json",
+			"tsconfig.base.json",
+			"biome.json",
+			"apps/web/src/**/*",
+			"apps/web/package.json",
+			"apps/web/project.json",
+			"apps/web/tsconfig.json",
+			"apps/web/vite.config.ts",
+			"apps/agent/project.json",
+			"apps/api/project.json",
+			"!**/routeTree.gen.ts",
+			"!**/styles.css"
+		]
+	},
+	"formatter": {
+		"enabled": true,
+		"indentStyle": "tab"
+	},
+	"assist": {
+		"actions": {
+			"source": {
+				"organizeImports": "on"
+			}
+		}
+	},
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"recommended": true
+		}
+	},
+	"javascript": {
+		"formatter": {
+			"quoteStyle": "double"
+		}
+	}
+}

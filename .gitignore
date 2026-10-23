@@ -1,0 +1,83 @@
+# Compiled Output(s)
+dist
+dist-ssr
+node_modules
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Monorepo Tooling
+.nx/
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# Framework Artifacts
+.nitro
+.tanstack
+.wrangler
+.output
+.vinxi
+__unconfig*
+todos.json
+
+# Logs
+logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# OS
+.DS_Store
+
+# Tests
+/coverage
+/.nyc_output
+
+# Editors
+/.idea
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+
+# VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# Data
+.data
+/files
+/ormconfig.json
+
+# Environment
+.env
+*.env
+*.env.*
+!.env.sample
+!.env.development
+!.env.example
+
+# Secrets
+*.pem
+
+# AI Assistants
+.codegpt
+.claude/scheduled_tasks.lock
+
+# Locals
+/locals/pi*
+/locals/codex*
+*.local
+*.local.*
+
+# Other
+tmp/
