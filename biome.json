@@ -19,6 +19,7 @@
 			"apps/web/vite.config.ts",
 			"apps/agent/project.json",
 			"apps/api/project.json",
+			"apps/docs/project.json",
 			"!**/routeTree.gen.ts",
 			"!**/styles.css"
 		]

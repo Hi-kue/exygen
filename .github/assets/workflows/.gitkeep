@@ -1,0 +1,9 @@
+*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=
+.gitkeep
+
+This is a .gitkeep file. Its meant for git to
+pickup on folders that exist but don't have any
+content within them. Please delete this file
+when you are working within the folder this
+file exists within.
+*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=

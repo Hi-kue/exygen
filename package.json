@@ -8,6 +8,8 @@
 		"dev:web": "nx run web:dev",
 		"dev:api": "nx run api:dev",
 		"dev:agent": "nx run agent:dev",
+		"dev:docs": "nx run docs:dev",
+		"build:docs": "nx run docs:build",
 		"build": "nx run-many -t build",
 		"lint": "nx run-many -t lint",
 		"format": "nx run-many -t format",
