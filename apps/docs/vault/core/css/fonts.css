@@ -1,0 +1,209 @@
+/** README
+ *     This file is specifically used for defining the font faces
+ *     (@font-face) rules for any fonts that we intend to use for
+ *     the documentation site. Note that these fonts don't necessarily
+ *     need to be used, and the documentation site has preloaded fonts
+ *     by default (which I believe is Inter). However, if we want to
+ *     use custom fonts, we can define them here and use them
+ *     accordingly.
+ *
+ *     @license Satoshi © 2026 Indian Type Foundry
+ *     @license Stardom © 2024 Indian Type Foundry
+ *     @license Fira Code © 2015-2026 The Mozilla Foundation, Telefonica S.A., Nikita Prokopov (CL)
+*/
+
+@font-face {
+	font-family: "Satoshi-Light";
+	src:
+		url("../assets/fonts/Satoshi-Light.woff2") format("woff2"),
+		url("../assets/fonts/Satoshi-Light.woff") format("woff"),
+		url("../assets/fonts/Satoshi-Light.ttf") format("truetype");
+	font-weight: 300;
+	font-display: swap;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: "Satoshi-LightItalic";
+	src:
+		url("../assets/fonts/Satoshi-LightItalic.woff2") format("woff2"),
+		url("../assets/fonts/Satoshi-LightItalic.woff") format("woff"),
+		url("../assets/fonts/Satoshi-LightItalic.ttf") format("truetype");
+	font-weight: 300;
+	font-display: swap;
+	font-style: italic;
+}
+
+@font-face {
+	font-family: "Satoshi-Regular";
+	src:
+		url("../assets/fonts/Satoshi-Regular.woff2") format("woff2"),
+		url("../assets/fonts/Satoshi-Regular.woff") format("woff"),
+		url("../assets/fonts/Satoshi-Regular.ttf") format("truetype");
+	font-weight: 400;
+	font-display: swap;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: "Satoshi-Italic";
+	src:
+		url("../assets/fonts/Satoshi-Italic.woff2") format("woff2"),
+		url("../assets/fonts/Satoshi-Italic.woff") format("woff"),
+		url("../assets/fonts/Satoshi-Italic.ttf") format("truetype");
+	font-weight: 400;
+	font-display: swap;
+	font-style: italic;
+}
+
+@font-face {
+	font-family: "Satoshi-Medium";
+	src:
+		url("../assets/fonts/Satoshi-Medium.woff2") format("woff2"),
+		url("../assets/fonts/Satoshi-Medium.woff") format("woff"),
+		url("../assets/fonts/Satoshi-Medium.ttf") format("truetype");
+	font-weight: 500;
+	font-display: swap;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: "Satoshi-MediumItalic";
+	src:
+		url("../assets/fonts/Satoshi-MediumItalic.woff2") format("woff2"),
+		url("../assets/fonts/Satoshi-MediumItalic.woff") format("woff"),
+		url("../assets/fonts/Satoshi-MediumItalic.ttf") format("truetype");
+	font-weight: 500;
+	font-display: swap;
+	font-style: italic;
+}
+
+@font-face {
+	font-family: "Satoshi-Bold";
+	src:
+		url("../assets/fonts/Satoshi-Bold.woff2") format("woff2"),
+		url("../assets/fonts/Satoshi-Bold.woff") format("woff"),
+		url("../assets/fonts/Satoshi-Bold.ttf") format("truetype");
+	font-weight: 700;
+	font-display: swap;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: "Satoshi-BoldItalic";
+	src:
+		url("../assets/fonts/Satoshi-BoldItalic.woff2") format("woff2"),
+		url("../assets/fonts/Satoshi-BoldItalic.woff") format("woff"),
+		url("../assets/fonts/Satoshi-BoldItalic.ttf") format("truetype");
+	font-weight: 700;
+	font-display: swap;
+	font-style: italic;
+}
+
+@font-face {
+	font-family: "Satoshi-Black";
+	src:
+		url("../assets/fonts/Satoshi-Black.woff2") format("woff2"),
+		url("../assets/fonts/Satoshi-Black.woff") format("woff"),
+		url("../assets/fonts/Satoshi-Black.ttf") format("truetype");
+	font-weight: 900;
+	font-display: swap;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: "Satoshi-BlackItalic";
+	src:
+		url("../assets/fonts/Satoshi-BlackItalic.woff2") format("woff2"),
+		url("../assets/fonts/Satoshi-BlackItalic.woff") format("woff"),
+		url("../assets/fonts/Satoshi-BlackItalic.ttf") format("truetype");
+	font-weight: 900;
+	font-display: swap;
+	font-style: italic;
+}
+
+/**
+* This is a variable font
+* You can control variable axes as shown below:
+* font-variation-settings: wght 900.0;
+*
+* available axes:
+"wght" (range from 300.0 to 900.0
+*/
+@font-face {
+	font-family: "Satoshi-Variable";
+	src:
+		url("../assets/fonts/Satoshi-Variable.woff2") format("woff2"),
+		url("../assets/fonts/Satoshi-Variable.woff") format("woff"),
+		url("../assets/fonts/Satoshi-Variable.ttf") format("truetype");
+	font-weight: 300 900;
+	font-display: swap;
+	font-style: normal;
+}
+
+/**
+* This is a variable font
+* You can control variable axes as shown below:
+* font-variation-settings: wght 900.0;
+*
+* available axes:
+"wght" (range from 300.0 to 900.0
+*/
+@font-face {
+	font-family: "Satoshi-VariableItalic";
+	src:
+		url("../assets/fonts/Satoshi-VariableItalic.woff2") format("woff2"),
+		url("../assets/fonts/Satoshi-VariableItalic.woff") format("woff"),
+		url("../assets/fonts/Satoshi-VariableItalic.ttf") format("truetype");
+	font-weight: 300 900;
+	font-display: swap;
+	font-style: italic;
+}
+
+@font-face {
+	font-family: "FiraCode-Light";
+	src: url("../assets/fonts/FiraCode-Light.ttf") format("truetype");
+	font-weight: 300;
+	font-display: swap;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: "FiraCode-Regular";
+	src: url("../assets/fonts/FiraCode-Regular.ttf") format("truetype");
+	font-weight: 400;
+	font-display: swap;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: "FiraCode-Medium";
+	src: url("../assets/fonts/FiraCode-Medium.ttf") format("truetype");
+	font-weight: 500;
+	font-display: swap;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: "FiraCode-SemiBold";
+	src: url("../assets/fonts/FiraCode-SemiBold.ttf") format("truetype");
+	font-weight: 600;
+	font-display: swap;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: "FiraCode-Bold";
+	src: url("../assets/fonts/FiraCode-Bold.ttf") format("truetype");
+	font-weight: 700;
+	font-display: swap;
+	font-style: normal;
+}
+
+:root {
+	--md-text-font: "Satoshi-Regular", "Satoshi-Medium", "Inter", sans-serif;
+	--md-code-font:
+		"FiraCode-Regular", "Fira Code", "JetBrains Mono", monospace;
+}
+
+/* THIS WILL BE REMOVED NEXT PASS OR REFACTORED. */

@@ -1,9 +1,4 @@
-# Exygen Index
-
-Status: Proposed Blueprint
-Track: 2
-Timebox: 144 hours
-Domain: Computer Science
+# Exygen
 
 ## 1. Mission
 
@@ -104,6 +99,7 @@ Exygen uses an Nx monorepo combining Python workspaces managed by `uv` and TypeS
 - Agent package (`apps/agent`): Python 3.12+, Pydantic contracts, multi-agent pipeline (extraction, style analysis, planning, generation, validation, assembly), and deterministic fallback orchestration.
 - Backend API (`apps/api`): Python 3.12+, FastAPI, and Pydantic exposing HTTP endpoints backed by `apps/agent`.
 - Web platform (`apps/web`): TypeScript, React, Vite, Tailwind CSS, and the TanStack ecosystem (TanStack Start, TanStack Router, TanStack Query, TanStack Form) serving both the public website and the interactive exam-generation application.
+- Docs (`apps/docs`): Zensical documentation site and per-component changelogs, a standalone `uv` project (Python 3.14+) exposed as the Nx project `docs`. Agents update it by following `.agents/skills/docs/SKILL.md` whenever a feature or behavior changes.
 - Document processing: Local Python PDF and text parsing, adding OCR only if scanned samples require it.
 - Model provider: Configuration-based adapter for a hosted or local LLM with isolated prompt templates and a deterministic mock fallback.
 - Storage: Local files or SQLite for demo metadata.
@@ -115,7 +111,9 @@ Exygen uses an Nx monorepo combining Python workspaces managed by `uv` and TypeS
 ```text
 /
 |-- .agents/
-|   `-- index.md                # Mission, architecture, and execution plan
+|   |-- index.md                # Mission, architecture, and execution plan
+|   `-- skills/
+|       `-- docs/SKILL.md       # How agents update the docs site and changelogs
 |-- apps/
 |   |-- agent/                  # Python multi-agent pipeline and Pydantic contracts
 |   |   |-- project.json
@@ -127,10 +125,15 @@ Exygen uses an Nx monorepo combining Python workspaces managed by `uv` and TypeS
 |   |   |-- pyproject.toml
 |   |   |-- src/exygen_api/
 |   |   `-- tests/
-|   `-- web/                    # TypeScript, React, and TanStack website and app
+|   |-- web/                    # TypeScript, React, and TanStack website and app
+|   |   |-- project.json
+|   |   |-- package.json
+|   |   `-- src/
+|   `-- docs/                   # Zensical docs site and changelogs (standalone uv project)
 |       |-- project.json
-|       |-- package.json
-|       `-- src/
+|       |-- pyproject.toml
+|       |-- zensical.toml
+|       `-- vault/              # Markdown source: component docs and changelogs
 |-- scripts/                    # Setup, demo, and evaluation helpers
 |-- nx.json                     # Nx monorepo configuration
 |-- package.json                # Root Node workspace scripts and dev dependencies
@@ -225,9 +228,9 @@ Maintain a table in `docs/third-party-notices.md` recording: component name, exa
 
 References:
 
-- Meterless: https://github.com/Meterless/Meterless
-- Zetaris organization: https://github.com/zetaris
-- Apache License 2.0: https://www.apache.org/licenses/LICENSE-2.0
+- Meterless: <https://github.com/Meterless/Meterless>
+- Zetaris organization: <https://github.com/zetaris>
+- Apache License 2.0: <https://www.apache.org/licenses/LICENSE-2.0>
 
 Do not describe Meterless or Zetaris as integrated unless the corresponding components are selected and used in the codebase.
 
