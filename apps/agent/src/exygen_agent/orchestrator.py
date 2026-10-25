@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+from exygen_agent.assembly import AssemblyAgent
 from exygen_agent.agents import (
-    AssemblyAgent,
     ExamPlanningAgent,
     ExtractionAgent,
     QuestionGenerationAgent,
@@ -96,7 +96,8 @@ class ExamPipelineOrchestrator:
         )
         return self.assembly_agent.assemble(
             exam_id=exam_id,
-            profile=profile,
+            course=profile.course,
+            profile_id=profile.id,
             blueprint=blueprint,
             questions=questions,
             reports=reports,
