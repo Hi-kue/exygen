@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, Any
 
 from pydantic import BaseModel, Field
 
@@ -117,3 +117,5 @@ class AssembledExam(BaseModel):
     student_pdf_path: str | None = None
     instructor_pdf_path: str | None = None
     export_metadata: dict[str, Any] = Field(default_factory=dict)
+
+AssembledExam.model_rebuild()
