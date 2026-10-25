@@ -70,7 +70,26 @@ export interface AssembledExam {
 	validation_reports: ValidationReport[];
 	alignment_summary: string;
 	markdown_export: string;
+	student_pdf_path?: string;
+	instructor_pdf_path?: string;
 }
+
+async function downloadExamFile(examId: string, type: "student" | "instructor"): Promise<void> {
+	const response = await fetch(`${API_BASE_URL}/api/exams/${examId}/export?type=${type}`);
+	if (!response.ok) throw new Error(`Failed to download ${type} exam`);
+
+	const blob = await response.blob();
+	const url = window.URL.createObjectURL(blob);
+	const a = document.createElement("a");
+	a.href = url;
+	a.download = `exam_${examId}_${type}.pdf`;
+	document.body.appendChild(a);
+	a.click();
+	window.URL.revokeObjectURL(url);
+	document.body.removeChild(a);
+}
+
+export { downloadExamFile };
 
 export interface ExamGenerationInput {
 	profile_id: string;

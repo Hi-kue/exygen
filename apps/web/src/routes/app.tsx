@@ -8,6 +8,7 @@ import {
 	documentsQueryOptions,
 	examsQueryOptions,
 	generatePracticeExam,
+	downloadExamFile,
 	profilesQueryOptions,
 } from "../lib/api";
 
@@ -201,13 +202,24 @@ function ExamStudioApp() {
 			{activeExam ? (
 				<section className="rounded-xl border border-slate-800 bg-slate-900/60 p-6">
 					<div className="flex flex-wrap items-center justify-between gap-4">
-						<div>
+						<div className="flex items-center gap-3">
 							<h2 className="text-lg font-semibold text-white">
 								4. Verified Practice Exam ({activeExam.id})
 							</h2>
-							<p className="mt-1 text-xs text-emerald-400">
-								{activeExam.alignment_summary}
-							</p>
+							<div className="flex gap-2">
+								<button
+									onClick={() => downloadExamFile(activeExam.id, "student")}
+									className="rounded-md bg-slate-800 px-2 py-1 text-xs font-medium text-slate-300 transition-colors hover:bg-slate-700 hover:text-white"
+								>
+									Download Student PDF
+								</button>
+								<button
+									onClick={() => downloadExamFile(activeExam.id, "instructor")}
+									className="rounded-md bg-slate-800 px-2 py-1 text-xs font-medium text-slate-300 transition-colors hover:bg-slate-700 hover:text-white"
+								>
+									Download Key PDF
+								</button>
+							</div>
 						</div>
 					</div>
 
