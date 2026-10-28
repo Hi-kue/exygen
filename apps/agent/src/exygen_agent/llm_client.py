@@ -1,32 +1,11 @@
 from __future__ import annotations
 
-import os
 from abc import ABC, abstractmethod
-from pathlib import Path
 from typing import Any
 
 from openai import OpenAI
 
-
-def _load_dotenv() -> None:
-    """Loads environment variables from the nearest .env file if not already set."""
-    current = Path(__file__).resolve().parent
-    for directory in [current, *current.parents]:
-        env_path = directory / ".env"
-        if env_path.is_file():
-            for raw_line in env_path.read_text(encoding="utf-8").splitlines():
-                line = raw_line.strip()
-                if not line or line.startswith("#") or "=" not in line:
-                    continue
-                key, _, value = line.partition("=")
-                key = key.strip()
-                value = value.strip().strip("'\"")
-                if key and key not in os.environ:
-                    os.environ[key] = value
-            break
-
-
-_load_dotenv()
+from exygen_agent.settings import settings
 
 
 class BaseLLMClient(ABC):
@@ -46,9 +25,6 @@ class BaseLLMClient(ABC):
 class OpenRouterClient(BaseLLMClient):
     """OpenRouter LLM client using OpenAI Python SDK."""
 
-    DEFAULT_MODEL = "nvidia/nemotron-3-ultra-550b-a55b:free"
-    DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
-
     def __init__(
         self,
         api_key: str | None = None,
@@ -56,21 +32,27 @@ class OpenRouterClient(BaseLLMClient):
         default_model: str | None = None,
         high_reasoning: bool = True,
     ) -> None:
-        _load_dotenv()
-        self.api_key = api_key if api_key is not None else os.getenv("OPENROUTER_API_KEY", "")
-        self.base_url = base_url or os.getenv("OPENROUTER_BASE_URL", self.DEFAULT_BASE_URL)
-        self.default_model = default_model or os.getenv("OPENROUTER_MODEL") or self.DEFAULT_MODEL
+        config = settings.agent
+        if api_key is None and config.openrouter_api_key is not None:
+            api_key = config.openrouter_api_key.get_secret_value()
+        self.api_key = api_key or ""
+        self.base_url = base_url or config.openrouter_base_url
+        self.default_model = default_model or config.openrouter_model
+        self.temperature = config.temperature
+        self.max_tokens = config.max_tokens
         self.high_reasoning = high_reasoning
 
         if not self.api_key:
             raise ValueError(
-                "OPENROUTER_API_KEY is required for OpenRouterClient. "
-                "Provide it in the constructor, in .env, or via the OPENROUTER_API_KEY environment variable."
+                "AGENT_OPENROUTER_API_KEY is required for OpenRouterClient. "
+                "Provide it in the constructor, in apps/agent/.env, "
+                "or via the AGENT_OPENROUTER_API_KEY environment variable."
             )
 
         self.client = OpenAI(
             api_key=self.api_key,
             base_url=self.base_url,
+            timeout=config.timeout_seconds,
             default_headers={
                 "HTTP-Referer": "https://github.com/Hi-kue/exygen",
                 "X-Title": "Exygen Exam Generator",
@@ -93,8 +75,11 @@ class OpenRouterClient(BaseLLMClient):
         payload: dict[str, Any] = {
             "model": target_model,
             "messages": messages,
-            "temperature": kwargs.get("temperature", 0.7),
+            "temperature": kwargs.get("temperature", self.temperature),
         }
+        max_tokens = kwargs.get("max_tokens", self.max_tokens)
+        if max_tokens is not None:
+            payload["max_tokens"] = max_tokens
 
         # Include reasoning configuration if requested and supported
         if self.high_reasoning and "extra_body" not in kwargs:
@@ -222,9 +207,8 @@ class MockLLMClient(BaseLLMClient):
 
 
 def get_llm_client(force_mock: bool = False, **kwargs: Any) -> BaseLLMClient:
-    """Factory creating OpenRouterClient if key exists, otherwise MockLLMClient."""
-    _load_dotenv()
-    api_key = os.getenv("OPENROUTER_API_KEY")
-    if force_mock or not api_key:
+    """Factory creating OpenRouterClient if configured, otherwise MockLLMClient."""
+    config = settings.agent
+    if force_mock or config.llm_provider == "mock" or config.openrouter_api_key is None:
         return MockLLMClient(**kwargs)
-    return OpenRouterClient(api_key=api_key, **kwargs)
+    return OpenRouterClient(api_key=config.openrouter_api_key.get_secret_value(), **kwargs)

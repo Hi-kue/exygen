@@ -38,7 +38,8 @@ flowchart LR
 | File | Responsibility | Key Classes & Functions |
 | :--- | :--- | :--- |
 | [`synthesis_contracts.py`](./src/exygen_agent/synthesis_contracts.py) | Typed Pydantic v2 schemas for Stage 1–3 boundaries and Markdown section extraction | `AnchorQuestion`, `BlueprintSlot`, `ExamBlueprintWithSlots`, `SynthesizedQuestion`, `CriticEvaluation`, `CriticFeedback`, `MarkdownParseError`, `extract_markdown_sections()` |
-| [`llm_client.py`](./src/exygen_agent/llm_client.py) | OpenRouter LLM client (via OpenAI SDK), `.env` auto-loader, and deterministic mock fallback | `BaseLLMClient`, `OpenRouterClient`, `MockLLMClient`, `get_llm_client()` |
+| [`llm_client.py`](./src/exygen_agent/llm_client.py) | OpenRouter LLM client (via OpenAI SDK, configured from `settings.py`) and deterministic mock fallback | `BaseLLMClient`, `OpenRouterClient`, `MockLLMClient`, `get_llm_client()` |
+| [`settings.py`](./src/exygen_agent/settings.py) | Typed environment configuration (`APP_*`, `AGENT_*`, `LANGFUSE_*`) loaded from the process environment and `apps/agent/.env`; see [`.env.sample`](./.env.sample) | `Settings`, `AgentSettings`, `LangfuseSettings`, `get_settings()`, `settings` |
 | [`synthesizer.py`](./src/exygen_agent/synthesizer.py) | **Agent 2 (Question Synthesizer)**: Exemplar-anchored prompt builder and Markdown-to-object parser | `QuestionSynthesizerAgent`, `build_synthesis_prompt()`, `parse_synthesized_markdown()` |
 | [`critic.py`](./src/exygen_agent/critic.py) | **Agent 3 (Critic Interface)**: Academic verification prompt builder and flexible verdict parser | `CriticAgent`, `build_critic_prompt()`, `parse_critic_markdown()` |
 | [`synthesis_graph.py`](./src/exygen_agent/synthesis_graph.py) | **LangGraph State Machine**: Slot-by-slot retry orchestration and working-memory feedback injection | `SlotSynthesisState`, `create_slot_synthesis_graph()`, `run_slot_synthesis()`, `synthesize_exam_slots()` |

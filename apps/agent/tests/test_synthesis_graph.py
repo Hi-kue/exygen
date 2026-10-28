@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import os
-
 import pytest
 from openai import APIError
 
@@ -18,6 +16,7 @@ from exygen_agent import (
     run_slot_synthesis,
     synthesize_exam_slots,
 )
+from exygen_agent.settings import settings
 
 
 @pytest.fixture
@@ -501,13 +500,12 @@ def test_live_openrouter_if_key_present(
     sample_slot: BlueprintSlot,
     sample_anchor: AnchorQuestion,
 ) -> None:
-    api_key = os.getenv("OPENROUTER_API_KEY")
-    if not api_key:
+    if settings.agent.openrouter_api_key is None:
         pytest.skip(
-            "OPENROUTER_API_KEY environment variable not set. Skipping live LLM integration test."
+            "AGENT_OPENROUTER_API_KEY not set. Skipping live LLM integration test."
         )
 
-    client = OpenRouterClient(api_key=api_key)
+    client = OpenRouterClient()
     try:
         q, evaluation = run_slot_synthesis(
             slot=sample_slot,
