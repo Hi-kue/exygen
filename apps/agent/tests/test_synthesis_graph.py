@@ -16,6 +16,7 @@ from src import (
     run_slot_synthesis,
     synthesize_exam_slots,
 )
+from exygen_agent.settings import settings
 
 
 @pytest.fixture
@@ -506,10 +507,12 @@ def test_live_openrouter_if_key_present(
     sample_slot: BlueprintSlot,
     sample_anchor: AnchorQuestion,
 ) -> None:
-    llm = get_chat_model()
-    if isinstance(llm, MockLLMClient):
-        pytest.skip("OpenRouter is not configured. Skipping live LLM integration test.")
+    if settings.agent.openrouter_api_key is None:
+        pytest.skip(
+            "AGENT_OPENROUTER_API_KEY not set. Skipping live LLM integration test."
+        )
 
+    client = OpenRouterClient()
     try:
         q, evaluation = run_slot_synthesis(
             slot=sample_slot,
