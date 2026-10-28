@@ -1,11 +1,24 @@
 [project]
 name = "exygen-agent"
 version = "0.1.0"
-description = "Exygen multi-agent orchestration and exam generation pipeline"
+description = "Exygen multi-agent orchestration and exam generation service."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "pydantic>=2.10.0",
+    "openai>=1.50.0",
+    "langgraph>=0.2.0",
+    "pydantic-settings>=2.16.1",
+    "pytest>=9.1.1",
+    "rich>=15.0.0",
+    "docling[rapidocr]>=2.143.1",
+    "langchain>=1.4.7",
+    "langchain-core>=1.7.0",
+    "langchain-openrouter>=0.2.9",
+    "langchain-openai>=1.7.3",
+    "langfuse>=5.0.4",
+    "langfuse-sdk>=1.0.0",
+    "langfuse-mcp>=0.14.0",
 ]
 
 [project.scripts]
