@@ -1,0 +1,45 @@
+/** README
+ *   This file is specifically used for defining any base overrides for
+ *   Zensical. Note that these base overrides don't necessarily need to
+ *   be used, cna the documentation site already comes with default
+ *   styling that they have found works best for them. However, if you
+ *   plan to add custom styling, define them here and use them
+ *   accordingly.
+ *
+ *   Docs: https://zensical.org/docs/customization/?h=css#additional-css
+ *         https://zensical.org/docs/authoring/buttons/
+ */
+
+/** Primary Button
+ *
+ *   Use case: [Example Button](#){ .md-button .md-button--primary }
+ */
+.md-button.md-button--primary {
+  display: inline-flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 1rem;
+  border-radius: 0.5rem;
+  border: none;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 0.875rem;
+  color: #fff;
+  background: #fa862d;
+  box-shadow:
+    0px 2px 3px rgba(0, 0, 0, 0.3),
+    0px 3px 4px rgba(0, 0, 0, 0.15),
+    inset 0px 2px 2px rgba(255, 255, 255, 0.4),
+    inset 0px -3px 0px rgba(0, 0, 0, 0.16);
+  transition: transform 0.15s ease, filter 0.15s ease, box-shadow 0.15s ease;
+}
+
+.md-button.md-button--primary:hover {
+  filter: brightness(1.05);
+}
+
+.md-button.md-button--primary:active {
+  transform: scale(0.95);
+}

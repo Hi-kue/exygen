@@ -5,13 +5,12 @@
 [![Nx](https://img.shields.io/badge/-Nx-black?style=flat&logo=nx&logoColor=143055)]()
 
 <div align="start">
-  <!-- FIXME: Uncomment below when a logo has been made for Exygen. -->
-  <!-- <img 
-    src="./.github/assets/exygen-logo.png"
+  <img
+    src="./.github/assets/logo/exygen-placeholder-logo.png"
     alt="Exygen Logo"
-    width="200"
-    height="200"
-    /> -->
+    width="150"
+    height="150"
+    />
 </div>
 
 # Exygen
@@ -28,17 +27,17 @@ By combining traceable document extraction with explicit validation boundaries i
 ## Table of Contents
 
 - [Exygen](#exygen)
-    - [Table of Contents](#table-of-contents)
-    - [Architecture & Features Overview](#architecture--features-overview)
-        - [Monorepo Layout](#monorepo-layout)
-        - [Applications](#applications)
-    - [Installation](#installation)
-        - [Common Nx Commands](#common-nx-commands)
-        - [Workspace Scripts (`scripts/`)](#workspace-scripts-scripts)
-    - [Documentation](#documentation)
-    - [System Requirements](#system-requirements)
-    - [Contact/Socials for Exygen](#contactsocials-for-exygen)
-    - [Contributing](#contributing)
+  - [Table of Contents](#table-of-contents)
+  - [Architecture \& Features Overview](#architecture--features-overview)
+    - [Monorepo Layout](#monorepo-layout)
+    - [Applications](#applications)
+  - [Installation](#installation)
+    - [Common Nx Commands](#common-nx-commands)
+    - [Workspace Scripts (`scripts/`)](#workspace-scripts-scripts)
+  - [Documentation](#documentation)
+  - [System Requirements](#system-requirements)
+  - [Contact/Socials for Exygen](#contactsocials-for-exygen)
+  - [Contributing](#contributing)
 
 ## Architecture & Features Overview
 
@@ -55,11 +54,13 @@ Here are the core features and architectural pillars driving Exygen:
 ```text
 /
 |-- .agents/
-|   `-- index.md          # Blueprint, agent contracts, and product scope
+|   |-- index.md          # Blueprint, agent contracts, and product scope
+|   `-- skills/docs/      # Agent skill for updating docs and changelogs
 |-- apps/
 |   |-- agent/            # Python multi-agent pipeline and Pydantic contracts
 |   |-- api/              # FastAPI backend service consuming exygen-agent
-|   `-- web/              # TypeScript + React + TanStack website and studio app
+|   |-- web/              # TypeScript + React + TanStack website and studio app
+|   `-- docs/             # Zensical documentation site and per-component changelogs
 |-- scripts/              # Linux/macOS Bash scripts (build, run, clean, set-env, enable, logs)
 |   `-- win/              # Windows PowerShell (.ps1) and Batch (.cmd) scripts
 |-- nx.json               # Nx task orchestration and dependency graph config
@@ -73,6 +74,7 @@ Here are the core features and architectural pillars driving Exygen:
 - **`apps/agent` (`exygen-agent`)**: Python 3.12+ package containing the typed Pydantic schemas (`SourceDocument`, `ExtractedQuestion`, `StyleProfile`, `ExamBlueprint`, `GeneratedQuestion`, `ValidationReport`, `AssembledExam`) and the 6-stage agent workflow (Extraction, Style Analysis, Exam Planning, Question Generation, Validation, and Assembly).
 - **`apps/api` (`exygen-api`)**: FastAPI HTTP backend exposing document ingestion, style profile synthesis, practice exam generation, and Markdown export routes.
 - **`apps/web` (`@exygen/web`)**: TypeScript and React application built with Vite, Tailwind CSS, TanStack Start, TanStack Router, TanStack Query, and TanStack Form serving both the overview website (`/`) and the four-stage interactive exam studio (`/app`).
+- **`apps/docs` (`exygen-docs`)**: Zensical documentation site with per-component docs and changelogs. It is a standalone `uv` project that needs Python 3.14+ and runs as the Nx project `docs`.
 
 The architecture is thoroughly detailed in the [`.agents/index.md`](./.agents/index.md) file. Provided below is a high-level diagram of the multi-agent workflow:
 
@@ -95,7 +97,7 @@ git clone https://github.com/your-org/exygen.git
 cd exygen
 ```
 
-2. Install Node and Python workspace dependencies from the repository root:
+1. Install Node and Python workspace dependencies from the repository root:
 
 ```bash
 pnpm install
@@ -114,6 +116,10 @@ pnpm run dev
 pnpm nx run agent:dev
 pnpm nx run api:dev
 pnpm nx run web:dev
+
+# Serve the docs site at http://localhost:3001 and build it into apps/docs/site
+pnpm nx run docs:dev
+pnpm nx run docs:build
 
 # Run tests across agent, api, and web
 pnpm run test
@@ -183,7 +189,7 @@ scripts\win\clean.cmd --dry-run
 >
 > [`.agents/index.md`](./.agents/index.md)
 >
-> As the codebase matures, detailed architecture specs, data-handling policies, benchmark evaluation results, and third-party license notices will be maintained in `/docs` (`architecture.md`, `data-policy.md`, `evaluation.md`, and `third-party-notices.md`).
+> The docs site in [`apps/docs`](./apps/docs) holds the architecture overview, data policy, evaluation results, and per-component changelogs (`apps/docs/vault`). Several of these pages are still stubs. Agents and contributors update them by following [`.agents/skills/docs/SKILL.md`](./.agents/skills/docs/SKILL.md).
 
 The internal blueprint for Exygen is categorized within the [`.agents`](./.agents) directory. If you are looking for information regarding the six-stage agent workflow, minimum Pydantic/TypeScript data contracts, or evaluation criteria, start there.
 

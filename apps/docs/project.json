@@ -1,0 +1,29 @@
+{
+	"name": "docs",
+	"$schema": "../../node_modules/nx/schemas/project-schema.json",
+	"projectType": "application",
+	"sourceRoot": "apps/docs/vault",
+	"tags": ["lang:python", "scope:docs"],
+	"targets": {
+		"dev": {
+			"executor": "nx:run-commands",
+			"continuous": true,
+			"options": {
+				"cwd": "apps/docs",
+				"command": "uv run zensical serve --dev-addr localhost:3001"
+			}
+		},
+		"build": {
+			"executor": "nx:run-commands",
+			"outputs": ["{projectRoot}/site"],
+			"options": {
+				"cwd": "apps/docs",
+				"commands": [
+					"uv run zensical build --clean",
+					"uv run python scripts/verify_assets.py"
+				],
+				"parallel": false
+			}
+		}
+	}
+}
