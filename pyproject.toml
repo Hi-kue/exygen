@@ -34,3 +34,4 @@ src = ["apps/agent/src", "apps/api/src"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]
+ignore = ["E501"]

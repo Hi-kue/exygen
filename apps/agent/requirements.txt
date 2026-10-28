@@ -1,0 +1,20 @@
+# General Dependencies
+pytest
+rich
+pydantic
+pydantic-settings
+openai
+
+# Agent Dependencies
+langgraph
+langchain
+langchain-core
+langchain-openrouter
+langchain-openai # FIXME: switch from openai to this?
+langfuse
+langfuse-sdk
+langfuse-mcp
+
+# Agent OCR Dependencies
+docling
+docling[rapidocr]

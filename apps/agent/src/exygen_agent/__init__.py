@@ -11,20 +11,65 @@ from exygen_agent.contracts import (
     StyleProfile,
     ValidationReport,
 )
+from exygen_agent.critic import CriticAgent, build_critic_prompt, parse_critic_markdown
+from exygen_agent.llm_client import BaseLLMClient, MockLLMClient, OpenRouterClient, get_llm_client
 from exygen_agent.orchestrator import ExamPipelineOrchestrator, default_synthetic_documents
+from exygen_agent.synthesis_contracts import (
+    AnchorQuestion,
+    BlueprintSlot,
+    CriticEvaluation,
+    CriticFeedback,
+    ExamBlueprintWithSlots,
+    MarkdownParseError,
+    SynthesizedQuestion,
+    extract_markdown_sections,
+)
+from exygen_agent.synthesis_graph import (
+    SlotSynthesisState,
+    create_slot_synthesis_graph,
+    run_slot_synthesis,
+    synthesize_exam_slots,
+)
+from exygen_agent.synthesizer import (
+    QuestionSynthesizerAgent,
+    build_synthesis_prompt,
+    parse_synthesized_markdown,
+)
 
 __all__ = [
+    "AnchorQuestion",
     "AssembledExam",
+    "BaseLLMClient",
+    "BlueprintSlot",
+    "CriticAgent",
+    "CriticEvaluation",
+    "CriticFeedback",
     "DocumentPage",
     "ExamBlueprint",
+    "ExamBlueprintWithSlots",
     "ExamGenerationRequest",
     "ExamPipelineOrchestrator",
     "ExtractedExam",
     "ExtractedQuestion",
     "GeneratedQuestion",
+    "MarkdownParseError",
+    "MockLLMClient",
+    "OpenRouterClient",
     "QuestionProvenance",
+    "QuestionSynthesizerAgent",
+    "SlotSynthesisState",
     "SourceDocument",
     "StyleProfile",
+    "SynthesizedQuestion",
     "ValidationReport",
+    "build_critic_prompt",
+    "build_synthesis_prompt",
+    "create_slot_synthesis_graph",
     "default_synthetic_documents",
+    "extract_markdown_sections",
+    "get_llm_client",
+    "parse_critic_markdown",
+    "parse_synthesized_markdown",
+    "run_slot_synthesis",
+    "synthesize_exam_slots",
 ]
