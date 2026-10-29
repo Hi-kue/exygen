@@ -58,6 +58,10 @@ MAX_FIELD_CHARS = 20_000
 # settings.py.
 CLEF_RETRYABLE_STATUSES = frozenset({429, 500, 502, 503, 504})
 CLEF_QUESTION_ID_PATTERN = re.compile(r"[A-Za-z0-9_.-]{1,100}")
+CLEF_CONNECT_TIMEOUT_SECONDS = 5.0
+CLEF_BACKOFF_SECONDS = 0.5
+CLEF_MAX_ERROR_DETAIL_CHARS = 200
+
 
 ClefModel = Literal["clef", "clef-flash"]
 
@@ -182,5 +186,11 @@ class ClefResult(BaseModel):
     answers: dict[str, ClefAnswer]
     usage: ClefUsage = Field(default_factory=ClefUsage)
 
+
+CLEF_ANSWER_MODELS: dict[str, type[ClefAnswer]] = {
+    "noul": NoulAnswer,
+    "choice": ChoiceAnswer,
+    "score": ScoreAnswer,
+}
 
 # endregion

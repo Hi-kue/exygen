@@ -53,6 +53,10 @@ from langfuse import get_client
 from pydantic import SecretStr, ValidationError
 from src.clients.langfuse_client import traced_tool
 from src.schemas.clients import (
+    CLEF_ANSWER_MODELS,
+    CLEF_BACKOFF_SECONDS,
+    CLEF_CONNECT_TIMEOUT_SECONDS,
+    CLEF_MAX_ERROR_DETAIL_CHARS,
     CLEF_QUESTION_ID_PATTERN,
     CLEF_RETRYABLE_STATUSES,
     ChoiceAnswer,
@@ -62,23 +66,14 @@ from src.schemas.clients import (
     ClefQuestion,
     ClefResult,
     ClefUsage,
-    NoulAnswer,
-    ScoreAnswer,
 )
 from src.settings import settings
 from src.utils.patterns.as_singleton import as_singleton
 
 logger = logging.getLogger(__name__)
 
-_CONNECT_TIMEOUT_SECONDS = 5.0
-_BACKOFF_SECONDS = 0.5
-_MAX_ERROR_DETAIL_CHARS = 200
 
-_ANSWER_MODELS: dict[str, type[ClefAnswer]] = {
-    "noul": NoulAnswer,
-    "choice": ChoiceAnswer,
-    "score": ScoreAnswer,
-}
+# region Clef Client Errors
 
 
 class ClefError(RuntimeError):
@@ -87,6 +82,9 @@ class ClefError(RuntimeError):
 
 class ClefNotConfiguredError(ClefError):
     """Raise when no Cloudflare account id or API token is configured."""
+
+
+# endregion
 
 
 @as_singleton
@@ -271,7 +269,7 @@ class ClefClient:
         }
 
         http = self._http or httpx.AsyncClient(
-            timeout=httpx.Timeout(self._timeout, connect=_CONNECT_TIMEOUT_SECONDS)
+            timeout=httpx.Timeout(self._timeout, connect=CLEF_CONNECT_TIMEOUT_SECONDS)
         )
         try:
             for attempt in range(self._max_retries + 1):
@@ -292,7 +290,7 @@ class ClefClient:
                     logger.warning(
                         "Clef returned HTTP %s, retrying", response.status_code
                     )
-                await sleep(_BACKOFF_SECONDS * 2**attempt)
+                await sleep(CLEF_BACKOFF_SECONDS * 2**attempt)
         finally:
             if self._http is None:
                 await http.aclose()
@@ -324,7 +322,7 @@ class ClefClient:
                 for error in envelope["errors"]
                 if isinstance(error, dict)
             ]
-            detail = "; ".join(filter(None, messages))[:_MAX_ERROR_DETAIL_CHARS]
+            detail = "; ".join(filter(None, messages))[:CLEF_MAX_ERROR_DETAIL_CHARS]
         suffix = f": {detail}" if detail else ""
 
         if response.is_error:
@@ -369,7 +367,7 @@ class ClefClient:
         answers: dict[str, ClefAnswer] = {}
         for question_id, question in questions.items():
             try:
-                answer = _ANSWER_MODELS[question.type].model_validate(
+                answer = CLEF_ANSWER_MODELS[question.type].model_validate(
                     raw_answers[question_id]
                 )
             except ValidationError as exc:
