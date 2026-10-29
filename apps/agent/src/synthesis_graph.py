@@ -40,7 +40,7 @@ def create_slot_synthesis_graph(
     critic: CriticAgent | None = None,
     llm_client: BaseLLMClient | None = None,
 ) -> Any:
-    """Builds and compiles the Agent 2 -> Agent 3 LangGraph state machine with retry feedback loop."""
+    """Builds and compiles the Synthesizer -> Critic LangGraph state machine with retry feedback loop."""
 
     client = llm_client or get_llm_client()
     synth_agent = synthesizer or QuestionSynthesizerAgent(llm_client=client)

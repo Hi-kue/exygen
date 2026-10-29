@@ -1,3 +1,3 @@
-# Exygen Web (`apps/web`)
+# Exygen Web Docs (`apps/web`)
 
-TypeScript, React, and TanStack Start/Router/Query/Form web application for the Exygen website and practice exam studio.
+Documentation have moved, they now live in the docs site [`apps/docs/vault/web/`](../docs/vault/web/index.md). Serve the docs site locally running `pnpm nx run web:dev`.

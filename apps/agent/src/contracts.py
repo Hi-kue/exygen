@@ -6,7 +6,9 @@ from pydantic import BaseModel, Field
 
 DocumentType = Literal["exam", "syllabus", "notes"]
 PermissionStatus = Literal["authorized", "synthetic_fixture"]
-QuestionType = Literal["multiple_choice", "short_answer", "code_writing", "algorithm_design"]
+QuestionType = Literal[
+    "multiple_choice", "short_answer", "code_writing", "algorithm_design"
+]
 DifficultyLevel = Literal["easy", "medium", "hard"]
 CorrectnessStatus = Literal["verified", "flagged", "unverified"]
 DuplicateRisk = Literal["low", "medium", "high"]
@@ -68,7 +70,9 @@ class ExamBlueprint(BaseModel):
 
 
 class QuestionProvenance(BaseModel):
-    generator_mode: Literal["deterministic_fallback", "llm_provider"] = "deterministic_fallback"
+    generator_mode: Literal["deterministic_fallback", "llm_provider"] = (
+        "deterministic_fallback"
+    )
     style_profile_id: str = Field(min_length=1)
     inspired_by_sections: list[str]
 

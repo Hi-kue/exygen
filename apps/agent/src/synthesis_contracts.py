@@ -87,7 +87,7 @@ class ExamBlueprintWithSlots(BaseModel):
 
 
 class SynthesizedQuestion(BaseModel):
-    """Synthesized practice exam question produced by Agent 2."""
+    """Synthesized practice exam question produced by the Synthesizer."""
 
     slot_number: int = Field(ge=1)
     topic: str = Field(min_length=1)
@@ -107,7 +107,7 @@ CorrectnessStatus = Literal["verified", "flagged", "unverified"]
 
 
 class CriticEvaluation(BaseModel):
-    """Critic review and validation verdict produced by Agent 3."""
+    """Critic review and validation verdict produced by the Critic."""
 
     slot_number: int = Field(ge=1)
     accepted: bool

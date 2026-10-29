@@ -32,7 +32,15 @@ Each component keeps its own `changelogs/` folder with one file per release or b
 ## Agent
 
 - **Source**: `apps/agent`, the Python multi-agent pipeline and Pydantic contracts.
-- **Latest**: No entries yet.
+- **Latest**: [2026-10-29-changelog-clients-naming](agent/changelogs/2026-10-29-changelog-clients-naming.md)
+
+### [Unreleased] - 2026-10-29
+
+#### Added
+- Langfuse, Docling and Clef clients, with `CF_*`, `DOCLING_*` and `AGENT_CLEF_*` settings.
+
+#### Changed/Refactored
+- Agents are named Classifier, Synthesizer and Critic instead of Agent 1, 2 and 3.
 
 ---
 

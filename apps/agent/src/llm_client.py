@@ -131,9 +131,9 @@ class MockLLMClient(BaseLLMClient):
             return self.custom_responses.pop(0)
 
         sys_str = system_prompt or ""
-        # Check Agent 3 (Critic) first to avoid substring overlap
+        # Check the Critic first to avoid substring overlap
         if (
-            "Agent 3 (Critic" in sys_str
+            "You are the Critic" in sys_str
             or "CRITIC EVALUATION" in prompt
             or "CANDIDATE QUESTION TO EVALUATE" in prompt
         ):
@@ -155,7 +155,7 @@ class MockLLMClient(BaseLLMClient):
             )
 
         if (
-            "Agent 2 (Question Synthesizer" in sys_str
+            "You are the Synthesizer" in sys_str
             or "QUESTION SYNTHESIS" in prompt
             or "TARGET QUESTION SLOT" in prompt
         ):

@@ -22,6 +22,7 @@ This page records how Exygen handles source exams and course materials. The rule
 - McGill source documents have unconfirmed permission, so use the synthetic fixtures first.
 - Never commit uploaded exams, student data, API keys, or confidential institutional files.
 - Enforce upload size and type limits, and keep retention minimal.
+- The Classifier sends question text to Cloudflare Workers AI (Clef) for classification. Cloudflare states that it does not train models on Workers AI content ([data usage](https://developers.cloudflare.com/workers-ai/platform/data-usage/)). The text is not written to Langfuse traces.
 
 ## Open Items
 
@@ -29,3 +30,4 @@ This page records how Exygen handles source exams and course materials. The rule
 - Deletion and retention behavior.
 - Permission acknowledgment wording shown at upload.
 - Per-source license and permission inventory.
+- A check that only documents with confirmed permission are sent to Cloudflare. The Clef client does not enforce this yet.

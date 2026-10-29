@@ -28,7 +28,7 @@ SYNTHESIZER_KNOWN_HEADERS = {
 
 REQUIRED_MCQ_KEYS = ("A", "B", "C", "D")
 
-SYSTEM_PROMPT = """You are Agent 2 (Question Synthesizer) for Exygen, an advanced AI application that crafts instructor-aligned Computer Science practice exams.
+SYSTEM_PROMPT = """You are the Synthesizer (Question Synthesizer) for Exygen, an advanced AI application that crafts instructor-aligned Computer Science practice exams.
 
 Your task is to synthesize an ORIGINAL, accurate practice exam question based on an exemplar anchor question from a past exam.
 You must match the instructor's assessment style, rigor, archetype, and question conventions while generating completely fresh problem instances and numbers.
@@ -67,7 +67,7 @@ def build_synthesis_prompt(
     anchor: AnchorQuestion,
     feedback_history: list[CriticFeedback] | None = None,
 ) -> str:
-    """Builds the exemplar-anchored user prompt for Agent 2."""
+    """Builds the exemplar-anchored user prompt for the Synthesizer."""
     feedback_section = ""
     if feedback_history:
         feedback_lines = ["\n### PREVIOUS VERIFIER FEEDBACK (WORKING MEMORY):"]
@@ -166,7 +166,7 @@ def _normalize_mcq_solution(solution_raw: str) -> str:
 
 
 def parse_synthesized_markdown(text: str, slot: BlueprintSlot) -> SynthesizedQuestion:
-    """Parses Agent 2's Markdown response into a typed SynthesizedQuestion.
+    """Parses the Synthesizer's Markdown response into a typed SynthesizedQuestion.
 
     Raises MarkdownParseError if any mandatory section is missing or if multiple_choice
     options do not follow the 4-option (A, B, C, D) convention.
@@ -239,7 +239,7 @@ def parse_synthesized_markdown(text: str, slot: BlueprintSlot) -> SynthesizedQue
 
 
 class QuestionSynthesizerAgent:
-    """Agent 2: Generates original exemplar-anchored questions using Markdown-structured prompts."""
+    """Synthesizer: Generates original exemplar-anchored questions using Markdown-structured prompts."""
 
     def __init__(self, llm_client: BaseLLMClient | None = None, model: str | None = None) -> None:
         self.llm_client = llm_client or get_llm_client()

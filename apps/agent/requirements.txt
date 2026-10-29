@@ -1,9 +1,9 @@
 # General Dependencies
-pytest
 rich
 pydantic
 pydantic-settings
 openai
+httpx
 
 # Agent Dependencies
 langgraph
@@ -18,3 +18,7 @@ langfuse-mcp
 # Agent OCR Dependencies
 docling
 docling[rapidocr]
+
+# Dev Dependencies
+ruff
+pytest

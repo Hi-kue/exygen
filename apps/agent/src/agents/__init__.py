@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from exygen_agent.contracts import (
+from src.contracts import (
     AssembledExam,
     DifficultyLevel,
     ExamBlueprint,
@@ -104,7 +104,9 @@ class StyleAnalysisAgent:
         type_counts: dict[QuestionType, int] = {}
         topic_counts: dict[str, int] = {}
         for question in all_questions:
-            type_counts[question.question_type] = type_counts.get(question.question_type, 0) + 1
+            type_counts[question.question_type] = (
+                type_counts.get(question.question_type, 0) + 1
+            )
             for topic in question.topics:
                 topic_counts[topic] = topic_counts.get(topic, 0) + 1
 
@@ -112,7 +114,10 @@ class StyleAnalysisAgent:
             q_type: round(count / total, 2) for q_type, count in type_counts.items()
         }
         topic_total = max(sum(topic_counts.values()), 1)
-        topic_dist = {topic: round(count / topic_total, 2) for topic, count in topic_counts.items()}
+        topic_dist = {
+            topic: round(count / topic_total, 2)
+            for topic, count in topic_counts.items()
+        }
 
         course = exams[0].course if exams else "COMP-251"
         return StyleProfile(
@@ -153,14 +158,20 @@ class ExamPlanningAgent:
             questions_per_section[section] = base_count + (1 if idx < remainder else 0)
 
         topics = (
-            request.topic_constraints or list(profile.topic_distribution.keys()) or ["algorithms"]
+            request.topic_constraints
+            or list(profile.topic_distribution.keys())
+            or ["algorithms"]
         )
         topic_targets: dict[str, int] = {}
         for idx in range(request.question_count):
             topic = topics[idx % len(topics)]
             topic_targets[topic] = topic_targets.get(topic, 0) + 1
 
-        difficulty_targets: dict[DifficultyLevel, int] = {"easy": 0, "medium": 0, "hard": 0}
+        difficulty_targets: dict[DifficultyLevel, int] = {
+            "easy": 0,
+            "medium": 0,
+            "hard": 0,
+        }
         difficulty_targets[request.target_difficulty] = request.question_count
 
         return ExamBlueprint(
@@ -278,7 +289,8 @@ class QuestionGenerationAgent:
                         id=f"gen-q{idx + 1}",
                         section=section,
                         prompt=prompt,
-                        marks=marks_per_question + (remainder_marks if extra_mark else 0),
+                        marks=marks_per_question
+                        + (remainder_marks if extra_mark else 0),
                         format=q_format,
                         topic=topic,
                         difficulty=target_difficulty,
@@ -303,7 +315,9 @@ class ValidationAgent:
         questions: list[GeneratedQuestion],
         source_exams: list[ExtractedExam],
     ) -> list[ValidationReport]:
-        source_texts = {q.text.lower().strip() for exam in source_exams for q in exam.questions}
+        source_texts = {
+            q.text.lower().strip() for exam in source_exams for q in exam.questions
+        }
         reports: list[ValidationReport] = []
         for question in questions:
             issues: list[str] = []
@@ -311,7 +325,9 @@ class ValidationAgent:
             duplicate_risk = "low"
             if normalized_prompt in source_texts:
                 duplicate_risk = "high"
-                issues.append("Generated prompt matches a source exam question verbatim.")
+                issues.append(
+                    "Generated prompt matches a source exam question verbatim."
+                )
 
             if not question.solution.strip() or not question.explanation.strip():
                 issues.append("Question is missing a verified solution or explanation.")

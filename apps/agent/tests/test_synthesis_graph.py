@@ -291,7 +291,7 @@ def test_langgraph_reprompts_synthesizer_when_mandatory_section_missing(
     sample_slot: BlueprintSlot,
     sample_anchor: AnchorQuestion,
 ) -> None:
-    """Verifies that if Agent 2 forgets ## SOLUTION or ## EXPLANATION, Agent 3 is skipped and Agent 2 is reprompted."""
+    """Verifies that if the Synthesizer forgets ## SOLUTION or ## EXPLANATION, the Critic is skipped and the Synthesizer is reprompted."""
     malformed_synth_attempt_1 = """## QUESTION
 What is the worst-case time complexity of inserting into a binary heap?
 
