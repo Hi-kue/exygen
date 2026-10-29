@@ -59,13 +59,21 @@ from docling.exceptions import ConversionError
 from docling_core.transforms.chunker.hybrid_chunker import HybridChunker
 from docling_core.types.doc.document import DoclingDocument
 from langfuse import get_client
-from pydantic import BaseModel, Field
 from src.clients.langfuse_client import traced_tool
-from src.schemas.clients import MIN_TEXT_LAYER_CHARS, SIGNATURES, SUFFIX_FORMATS
+from src.schemas.clients import (
+    MIN_TEXT_LAYER_CHARS,
+    SIGNATURES,
+    SUFFIX_FORMATS,
+    DocumentExtraction,
+    PageExtraction,
+)
 from src.settings import settings
 from src.utils.patterns.as_singleton import as_singleton
 
 logger = logging.getLogger(__name__)
+
+
+# region Docling Client Errors Handlers
 
 
 class DocumentParseError(RuntimeError):
@@ -80,50 +88,7 @@ class DocumentLimitError(DocumentParseError):
     """Raise when a file exceeds the configured size or page limit."""
 
 
-class PageExtraction(BaseModel):
-    """The text of one page of a source document.
-
-    Attributes:
-        page_number: 1-based page number in the source. Formats without pages
-            (DOCX, HTML, Markdown, plain text) are returned as a single page 1.
-        text: The page content as Markdown, with tables preserved.
-        used_ocr: True when the page had no text layer, or OCR was forced, so the
-            text came from OCR and may contain recognition errors.
-    """
-
-    page_number: int = Field(ge=1)
-    text: str
-    used_ocr: bool = False
-
-
-class DocumentExtraction(BaseModel):
-    """Text extracted from one source document, with page attribution.
-
-    Attributes:
-        filename: Base name of the source file.
-        source_format: Name of the detected format, e.g. 'PDF' or 'IMAGE'.
-        page_count: Number of pages in the source.
-        pages: One entry per page, in order. Pages without text are kept so page
-            numbers stay aligned with the source.
-        warnings: Human-readable problems found during extraction, such as blank
-            pages or OCR use, for the validation report.
-    """
-
-    filename: str
-    source_format: str
-    page_count: int = Field(ge=1)
-    pages: list[PageExtraction]
-    warnings: list[str] = Field(default_factory=list)
-
-    @property
-    def text(self) -> str:
-        """Return the whole document as Markdown, pages separated by blank lines."""
-        return "\n\n".join(page.text for page in self.pages if page.text)
-
-    @property
-    def ocr_page_numbers(self) -> list[int]:
-        """Return the page numbers whose text came from OCR."""
-        return [page.page_number for page in self.pages if page.used_ocr]
+# endregion
 
 
 @as_singleton

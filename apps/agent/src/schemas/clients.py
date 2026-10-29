@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from enum import StrEnum
 from typing import Any, Literal
 
 from docling.datamodel.base_models import InputFormat
@@ -39,6 +40,53 @@ SIGNATURES: dict[str, tuple[bytes, ...]] = {
 # MIN_TEXT_LAYER_CHARS, we consider it as scanned.
 MIN_TEXT_LAYER_CHARS = 10
 
+
+class PageExtraction(BaseModel):
+    """The text of one page of a source document.
+
+    Attributes:
+        page_number: 1-based page number in the source. Formats without pages
+            (DOCX, HTML, Markdown, plain text) are returned as a single page 1.
+        text: The page content as Markdown, with tables preserved.
+        used_ocr: True when the page had no text layer, or OCR was forced, so the
+            text came from OCR and may contain recognition errors.
+    """
+
+    page_number: int = Field(ge=1)
+    text: str
+    used_ocr: bool = False
+
+
+class DocumentExtraction(BaseModel):
+    """Text extracted from one source document, with page attribution.
+
+    Attributes:
+        filename: Base name of the source file.
+        source_format: Name of the detected format, e.g. 'PDF' or 'IMAGE'.
+        page_count: Number of pages in the source.
+        pages: One entry per page, in order. Pages without text are kept so page
+            numbers stay aligned with the source.
+        warnings: Human-readable problems found during extraction, such as blank
+            pages or OCR use, for the validation report.
+    """
+
+    filename: str
+    source_format: str
+    page_count: int = Field(ge=1)
+    pages: list[PageExtraction]
+    warnings: list[str] = Field(default_factory=list)
+
+    @property
+    def text(self) -> str:
+        """Return the whole document as Markdown, pages separated by blank lines."""
+        return "\n\n".join(page.text for page in self.pages if page.text)
+
+    @property
+    def ocr_page_numbers(self) -> list[int]:
+        """Return the page numbers whose text came from OCR."""
+        return [page.page_number for page in self.pages if page.used_ocr]
+
+
 # endregion
 
 # region Langfuse Client Specifics
@@ -47,6 +95,35 @@ SECRET_PATTERN = re.compile(
     r"(?:sk|pk)-(?:lf-)?[A-Za-z0-9_-]{16,}|Bearer\s+[A-Za-z0-9._~+/=-]{16,}"
 )
 MAX_FIELD_CHARS = 20_000
+
+
+class AgentIdentifier(StrEnum):
+    """Name an observation after the agent that produced it.
+
+    The value is used verbatim as the observation name, as the 'agent:<value>' tag
+    and as the 'agent' metadata entry in Langfuse, so renaming a member changes
+    how historical traces are filtered.
+
+    Members:
+        CLASSIFIER: The Classifier, tags parsed questions with topic, format and marks.
+        SYNTHESIZER: The Synthesizer, writes an original question for a blueprint slot.
+        CRITIC: The Critic, verifies a drafted question and runs the code sandbox.
+        OTHER: Fallback for work that is not attributable to the three agents (or other agents above).
+    """
+
+    CLASSIFIER = "classifier"
+    SYNTHESIZER = "synthesizer"
+    CRITIC = "critic"
+
+    # NOTE:
+    # This is an optional pass for agents that don't fit above,
+    # however, if there are specific agents that we might need
+    # to account for later, we shouldn't just pass it as 'other'.
+    # Agents should be classified for langfuse regardless as this
+    # will help us trace better. Use 'other' as a last resort
+    # but you should never really need to use this!
+    OTHER = "other"
+
 
 # endregion
 

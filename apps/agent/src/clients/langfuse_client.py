@@ -34,37 +34,18 @@ import inspect
 import logging
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
-from enum import StrEnum
 from typing import Any
 
 from langfuse import Langfuse, observe, propagate_attributes
 from langfuse.langchain import CallbackHandler
-
-from src.schemas.clients import MAX_FIELD_CHARS, SECRET_PATTERN
+from src.schemas.clients import MAX_FIELD_CHARS, SECRET_PATTERN, AgentIdentifier
 from src.settings import settings
 from src.utils.patterns.as_singleton import as_singleton
 
 logger = logging.getLogger(__name__)
 
 
-class AgentIdentifier(StrEnum):
-    """Name an observation after the agent that produced it.
-
-    The value is used verbatim as the observation name, as the 'agent:<value>' tag
-    and as the 'agent' metadata entry in Langfuse, so renaming a member changes
-    how historical traces are filtered.
-
-    Members:
-        CLASSIFIER: The Classifier, tags parsed questions with topic, format and marks.
-        SYNTHESIZER: The Synthesizer, writes an original question for a blueprint slot.
-        CRITIC: The Critic, verifies a drafted question and runs the code sandbox.
-        OTHER: Fallback for work that is not attributable to the three agents.
-    """
-
-    CLASSIFIER = "classifier"
-    SYNTHESIZER = "synthesizer"
-    CRITIC = "critic"
-    OTHER = "other"
+# region Private Langfuse Client Functions
 
 
 def _mask(*, data: Any, **_: Any) -> Any:
@@ -113,6 +94,9 @@ def _disabled_reason() -> str:
         "Langfuse is disabled, events will not be captured. "
         f"LANGFUSE_IS_TELEMETRY_ENABLED={cfg.is_telemetry_enabled} KEYS_PRESENT={keys_present}"
     )
+
+
+# endregion
 
 
 @as_singleton

@@ -73,7 +73,7 @@ from src.utils.patterns.as_singleton import as_singleton
 logger = logging.getLogger(__name__)
 
 
-# region Clef Client Errors
+# region Clef Client Error Handlers
 
 
 class ClefError(RuntimeError):
