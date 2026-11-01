@@ -44,12 +44,50 @@ from src.schemas import (
     StyleProfile,
     ValidationReport,
 )
+<<<<<<< HEAD:apps/agent/src/__init__.py
+=======
+from exygen_agent.agents.code_sandbox_agent import CodeSandboxAgent
+from exygen_agent.sandbox.code_sandbox_result import CodeSandboxResult
+from exygen_agent.sandbox.judge0_service import Judge0Service
+from exygen_agent.sandbox.sandbox_result import SandboxExecutionResult
+from exygen_agent.critic import CriticAgent, build_critic_prompt, parse_critic_markdown
+from exygen_agent.llm_client import BaseLLMClient, MockLLMClient, OpenRouterClient, get_llm_client
+from exygen_agent.orchestrator import ExamPipelineOrchestrator, default_synthetic_documents
+from exygen_agent.synthesis_contracts import (
+    AnchorQuestion,
+    BlueprintSlot,
+    CriticEvaluation,
+    CriticFeedback,
+    ExamBlueprintWithSlots,
+    MarkdownParseError,
+    SynthesizedQuestion,
+    extract_markdown_sections,
+)
+from exygen_agent.synthesis_graph import (
+    SlotSynthesisState,
+    create_slot_synthesis_graph,
+    run_slot_synthesis,
+    synthesize_exam_slots,
+)
+from exygen_agent.synthesizer import (
+    QuestionSynthesizerAgent,
+    build_synthesis_prompt,
+    parse_synthesized_markdown,
+)
+>>>>>>> 9421c1d (Added code execution agent):apps/agent/src/exygen_agent/__init__.py
 
 __all__ = [
     "AnchorQuestion",
     "AssembledExam",
     "BlueprintSlot",
+<<<<<<< HEAD:apps/agent/src/__init__.py
     "ClassifierAgent",
+=======
+    "CodeSandboxAgent",
+    "CodeSandboxResult",
+    "Judge0Service",
+    "SandboxExecutionResult",
+>>>>>>> 9421c1d (Added code execution agent):apps/agent/src/exygen_agent/__init__.py
     "CriticAgent",
     "CriticEvaluation",
     "CriticFeedback",

@@ -117,8 +117,40 @@ class LangfuseSettings(BaseSettings):
     )
 
 
+class Judge0Settings(BaseSettings):
+    """Judge0 sandbox configuration (`JUDGE0_*`).
+
+    Points at a local self-hosted Judge0 instance by default. Set
+    `JUDGE0_API_URL` for another server and `JUDGE0_AUTH_TOKEN` when the
+    instance requires the `X-Auth-Token` header.
+    """
+
+    api_url: str = Field(
+        default="http://localhost:2358", description="Judge0 API base URL."
+    )
+    auth_token: SecretStr | None = Field(
+        default=None, description="Judge0 X-Auth-Token value."
+    )
+    exec_timeout_seconds: int = Field(
+        default=5, description="CPU time limit per submission (seconds)."
+    )
+    memory_limit_kb: int = Field(
+        default=256_000, description="Memory limit per submission (KB)."
+    )
+    request_timeout_seconds: int = Field(
+        default=60, description="HTTP timeout for a submission request."
+    )
+
+    model_config: ClassVar[SettingsConfigDict] = SettingsConfigDict(
+        env_prefix="JUDGE0_",
+        env_file=DEFAULT_ENV_FILE,
+        env_ignore_empty=True,
+        extra="ignore",
+    )
+
+
 class Settings(BaseSettings):
-    """Main settings (`APP_*`) plus the nested agent and Langfuse groups."""
+    """Main settings (`APP_*`) plus the nested agent, Langfuse and Judge0 groups."""
 
     app_env: str = Field(default=DEFAULT_APP_ENV, description="App environment.")
     app_name: str = Field(default=DEFAULT_APP_NAME, description="App name.")
@@ -131,6 +163,7 @@ class Settings(BaseSettings):
 
     agent: AgentSettings = Field(default_factory=AgentSettings)
     langfuse: LangfuseSettings = Field(default_factory=LangfuseSettings)
+    judge0: Judge0Settings = Field(default_factory=Judge0Settings)
 
     @property
     def is_production(self) -> bool:

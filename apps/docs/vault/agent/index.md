@@ -29,6 +29,12 @@ The docs for this package are split into two pages:
 !!! note "Two pipelines in the code"
     The [Architecture](../architecture.md#pipeline) page lists the blueprint's six logical roles. The [Orchestrator](reference.md#orchestrator) runs those roles with deterministic agents, and the offline demo uses it. The [Exygen Graph](pipeline.md#the-exygen-graph) is the LLM-backed pipeline, and `python -m src run` uses it. Its first three stages have working code, and the final assembly stage does not exist yet. The two pipelines share no code path.
 
+## Code Execution Sandbox
+
+`CodeSandboxAgent` (`agents/code_sandbox_agent.py`) runs between the synthesizer and the critic. It extracts code snippets from the generated prompt, has the LLM prepare runnable files, and executes them through `Judge0Service` (`sandbox/judge0_service.py`). Questions without snippets get a generated validation program when the answer is code-verifiable, and are skipped otherwise. Execution results override the critic's `code_sandbox_passed` flag, and failures return to the synthesizer for a bounded number of retries.
+
+For local execution, start the Judge0 stack in `docker/judge0/`. The agent defaults to `JUDGE0_API_URL="http://localhost:2358"`; set `JUDGE0_AUTH_TOKEN` if the instance requires the `X-Auth-Token` header. Python uses Judge0 language id `71` and Java uses `62`; Java files other than `Main.java` are sent through `additional_files`. See `docker/judge0/README.md` for setup and troubleshooting.
+
 ## Commands
 
 ```bash
