@@ -5,6 +5,7 @@ from typing import Any, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
+from exygen_agent.agents.code_sandbox_agent import CodeSandboxAgent, CodeSandboxResult
 from exygen_agent.critic import CriticAgent
 from exygen_agent.llm_client import BaseLLMClient, get_llm_client
 from exygen_agent.synthesis_contracts import (
@@ -31,6 +32,7 @@ class SlotSynthesisState(TypedDict, total=False):
     feedback_history: list[CriticFeedback]
     current_question: SynthesizedQuestion | None
     current_evaluation: CriticEvaluation | None
+    code_sandbox_result: CodeSandboxResult | None
     final_question: SynthesizedQuestion | None
     final_evaluation: CriticEvaluation | None
 
@@ -38,13 +40,21 @@ class SlotSynthesisState(TypedDict, total=False):
 def create_slot_synthesis_graph(
     synthesizer: QuestionSynthesizerAgent | None = None,
     critic: CriticAgent | None = None,
+    sandbox_agent: CodeSandboxAgent | None = None,
     llm_client: BaseLLMClient | None = None,
 ) -> Any:
-    """Builds and compiles the Agent 2 -> Agent 3 LangGraph state machine with retry feedback loop."""
+    """Builds and compiles the Agent 2 -> Agent 3 -> code sandbox LangGraph state machine.
+
+    After Agent 2 synthesizes a question, the code sandbox step extracts any code
+    snippets from the question prompt, prepares a runnable program with the LLM,
+    and executes it. On execution failure the error is fed back to Agent 2 so it
+    can regenerate the question.
+    """
 
     client = llm_client or get_llm_client()
     synth_agent = synthesizer or QuestionSynthesizerAgent(llm_client=client)
     crit_agent = critic or CriticAgent(llm_client=client)
+    sandbox_agent = sandbox_agent or CodeSandboxAgent(llm_client=client)
 
     def node_synthesizer(state: SlotSynthesisState) -> dict[str, Any]:
         slot = state["slot"]
@@ -131,7 +141,7 @@ def create_slot_synthesis_graph(
 
     def route_after_synthesizer(state: SlotSynthesisState) -> str:
         if state.get("current_question") is not None:
-            return "critic"
+            return "code_sandbox"
 
         attempt = state.get("attempt", 1)
         max_attempts = state.get("max_attempts", 3)
@@ -172,6 +182,27 @@ def create_slot_synthesis_graph(
                 style_alignment_score=0.0,
                 issues=[f"Critic format error: {exc}"],
                 verifier_notes=f"Critic response was malformed ({exc}); flagging attempt for retry.",
+            )
+
+        # Incorporate the authoritative code sandbox result (when the step ran).
+        # The sandbox execution outcome is ground truth, so it overrides the
+        # critic's CODE_SANDBOX_PASSED verdict and is reported verbatim.
+        sandbox_result = state.get("code_sandbox_result")
+        if sandbox_result is not None and not sandbox_result.skipped:
+            evaluation.code_sandbox_passed = sandbox_result.status == "PASS"
+            note_lines = [evaluation.verifier_notes or ""]
+            if sandbox_result.status == "PASS":
+                note_lines.append(
+                    f"Code sandbox PASSED (language={sandbox_result.language}). "
+                    f"Sandbox output: {sandbox_result.output or '(empty)'}"
+                )
+            else:
+                note_lines.append(
+                    f"Code sandbox FAILED (language={sandbox_result.language}). "
+                    f"Error: {sandbox_result.error}"
+                )
+            evaluation.verifier_notes = "\n".join(
+                line for line in note_lines if line
             )
 
         logger.info(
@@ -234,9 +265,104 @@ def create_slot_synthesis_graph(
 
         return "max_retries_exceeded"
 
+    def node_code_sandbox(state: SlotSynthesisState) -> dict[str, Any]:
+        """Runs the code execution step for the synthesized question.
+
+        Extracts snippets from the prompt, prepares runnable code with the LLM,
+        and executes it in the sandbox. On success (or when no snippets exist)
+        control flows to the critic. On failure the error is recorded as working
+        memory feedback and control loops back to Agent 2 for regeneration.
+        """
+        slot = state["slot"]
+        question = state["current_question"]
+        if question is None:
+            raise ValueError("node_code_sandbox invoked without current_question in state")
+
+        attempt = state.get("attempt", 1)
+        max_attempts = state.get("max_attempts", 3)
+        feedback_history = list(state.get("feedback_history", []))
+
+        result = sandbox_agent.prepare_and_execute(question)
+
+        logger.info(
+            "Code sandbox for slot %d attempt %d: skipped=%s status=%s language=%s",
+            slot.slot_number,
+            attempt,
+            result.skipped,
+            result.status,
+            result.language,
+        )
+
+        if result.skipped or result.status == "PASS":
+            return {"code_sandbox_result": result}
+
+        # Execution failed: feed the error back to Agent 2 via working memory.
+        feedback = CriticFeedback(
+            attempt=attempt,
+            verifier_notes=(
+                f"CODE SANDBOX EXECUTION FAILED (language={result.language}). "
+                f"Error: {result.error}\n"
+                f"Sandbox output: {result.output or '(none)'}\n"
+                f"Prepared code:\n{result.prepared_code or ''}"
+            ),
+            issues=[f"Code execution error ({result.language}): {result.error}"],
+            style_alignment_score=0.0,
+        )
+        updated_history = feedback_history + [feedback]
+        next_attempt = attempt + 1
+
+        if next_attempt > max_attempts:
+            logger.warning(
+                "Slot %d code sandbox failed after %d attempts; finalizing flagged.",
+                slot.slot_number,
+                max_attempts,
+            )
+            flagged_evaluation = CriticEvaluation(
+                slot_number=slot.slot_number,
+                accepted=False,
+                correctness_status="flagged",
+                code_sandbox_passed=False,
+                style_alignment_score=0.0,
+                issues=[f"Code execution error: {result.error}"],
+                verifier_notes=(
+                    f"Rejected: code sandbox execution failed after {max_attempts} "
+                    f"attempts (language={result.language}): {result.error}"
+                ),
+                raw_markdown=None,
+            )
+            return {
+                "code_sandbox_result": result,
+                "current_evaluation": flagged_evaluation,
+                "final_question": question,
+                "final_evaluation": flagged_evaluation,
+                "feedback_history": updated_history,
+                "attempt": next_attempt,
+            }
+
+        return {
+            "code_sandbox_result": result,
+            "current_question": None,
+            "current_evaluation": None,
+            "feedback_history": updated_history,
+            "attempt": next_attempt,
+        }
+
+    def route_after_code_sandbox(state: SlotSynthesisState) -> str:
+        result = state.get("code_sandbox_result")
+        if result is None or result.skipped or result.status == "PASS":
+            return "critic"
+
+        attempt = state.get("attempt", 1)
+        max_attempts = state.get("max_attempts", 3)
+        if attempt <= max_attempts:
+            return "retry_synthesis"
+
+        return "max_retries_exceeded"
+
     graph = StateGraph(SlotSynthesisState)
 
     graph.add_node("synthesizer", node_synthesizer)
+    graph.add_node("code_sandbox", node_code_sandbox)
     graph.add_node("critic", node_critic)
 
     graph.add_edge(START, "synthesizer")
@@ -244,6 +370,16 @@ def create_slot_synthesis_graph(
     graph.add_conditional_edges(
         "synthesizer",
         route_after_synthesizer,
+        {
+            "code_sandbox": "code_sandbox",
+            "retry_synthesis": "synthesizer",
+            "max_retries_exceeded": END,
+        },
+    )
+
+    graph.add_conditional_edges(
+        "code_sandbox",
+        route_after_code_sandbox,
         {
             "critic": "critic",
             "retry_synthesis": "synthesizer",
@@ -270,12 +406,14 @@ def run_slot_synthesis(
     max_attempts: int = 3,
     synthesizer: QuestionSynthesizerAgent | None = None,
     critic: CriticAgent | None = None,
+    sandbox_agent: CodeSandboxAgent | None = None,
     llm_client: BaseLLMClient | None = None,
 ) -> tuple[SynthesizedQuestion, CriticEvaluation]:
     """Runs a single question slot through the compiled LangGraph state machine."""
     compiled_graph = create_slot_synthesis_graph(
         synthesizer=synthesizer,
         critic=critic,
+        sandbox_agent=sandbox_agent,
         llm_client=llm_client,
     )
 
@@ -310,6 +448,7 @@ def synthesize_exam_slots(
     max_attempts: int = 3,
     synthesizer: QuestionSynthesizerAgent | None = None,
     critic: CriticAgent | None = None,
+    sandbox_agent: CodeSandboxAgent | None = None,
     llm_client: BaseLLMClient | None = None,
 ) -> tuple[list[SynthesizedQuestion], list[CriticEvaluation]]:
     """Synthesizes all slots in a blueprint sequentially, returning questions and evaluations."""
@@ -328,6 +467,7 @@ def synthesize_exam_slots(
             max_attempts=max_attempts,
             synthesizer=synthesizer,
             critic=critic,
+            sandbox_agent=sandbox_agent,
             llm_client=llm_client,
         )
         questions.append(q)
