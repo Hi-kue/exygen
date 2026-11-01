@@ -161,23 +161,27 @@ docs-build:
 graph:
 	$(NX) graph
 
-require-tui:
-	$(if $(wildcard apps/tui/project.json),,$(error The TUI app does not exist yet: apps/tui/project.json is missing))
+# NOTE:
+# Since we don't have a TUI build, release or structure defined
+# at the current stage, we will be ignoring the build, dev, and
+# scripts responsible for handling the TUI port of exygen.
+# require-tui:
+# 	$(if $(wildcard apps/tui/project.json),,$(error The TUI app does not exist yet: apps/tui/project.json is missing))
 
-dev-tui: require-tui
-	$(CLEAN) apps/tui --yes
-	$(SET_ENV) --sync
-	$(NX) run tui:build
-	$(NX) run tui:dev
+# dev-tui: require-tui
+# 	$(CLEAN) apps/tui --yes
+# 	$(SET_ENV) --sync
+# 	$(NX) run tui:build
+# 	$(NX) run tui:dev
 
-run-tui: require-tui
-	$(NX) run tui:dev
+# run-tui: require-tui
+# 	$(NX) run tui:dev
 
-build-tui: require-tui
-	$(NX) run tui:build
+# build-tui: require-tui
+# 	$(NX) run tui:build
 
-test-tui: require-tui
-	$(NX) run tui:test
+# test-tui: require-tui
+# 	$(NX) run tui:test
 
-clean-tui: require-tui
-	$(CLEAN) apps/tui $(ARGS)
+# clean-tui: require-tui
+# 	$(CLEAN) apps/tui $(ARGS)
