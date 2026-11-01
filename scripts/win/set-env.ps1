@@ -153,12 +153,12 @@ foreach ($arg in $args) {
         "--sync" { $SyncDeps = $true }
         "--dry-run" { $DryRun = $true }
         "--all" { $Requested.Add("all") }
-        { $_.StartsWith("-") } {
-            error "Unknown option: $arg"
-            Show-Usage
-            exit 1
-        }
         default {
+            if ($arg.StartsWith("-")) {
+                error "Unknown option: $arg"
+                Show-Usage
+                exit 1
+            }
             foreach ($part in ($arg -split ",")) {
                 $norm = $part -replace "^apps[\\/]", "" -replace "[\\/]$", ""
                 if ($norm -in @("all", "root", "agent", "api", "web")) {

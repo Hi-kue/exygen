@@ -13,7 +13,7 @@ tags:
 
 ## Summary
 
-All modules live in `apps/agent/src/exygen_agent/`.
+All modules live in `apps/agent/src/` and are imported as `src.<module>`. Run the package from `apps/agent` with `python -m src`.
 
 | File | Responsibility | Key classes and functions | Documented in |
 | --- | --- | --- | --- |
@@ -25,3 +25,11 @@ All modules live in `apps/agent/src/exygen_agent/`.
 | `synthesis_graph.py` | **LangGraph state machine**: slot-by-slot retry orchestration and working-memory feedback injection | `SlotSynthesisState`, `create_slot_synthesis_graph()`, `run_slot_synthesis()`, `synthesize_exam_slots()` | [Synthesis Graph](agents/synthesis-graph.md) |
 | `contracts.py` | General pipeline contracts consumed by `apps/api` | `SourceDocument`, `ExtractedExam`, `StyleProfile`, `ExamBlueprint`, `GeneratedQuestion`, `ValidationReport`, `AssembledExam` | [Contracts](contracts.md) |
 | `orchestrator.py` | High-level pipeline coordinator and offline synthetic fixtures | `ExamPipelineOrchestrator`, `default_synthetic_documents()` | [Orchestrator](orchestrator.md) |
+| `agents/deterministic.py` | Deterministic fallback agents for the six logical roles, re-exported by `agents/__init__.py` and used by the orchestrator | `ExtractionAgent`, `StyleAnalysisAgent`, `ExamPlanningAgent`, `QuestionGenerationAgent`, `ValidationAgent`, `AssemblyAgent` | [Orchestrator](orchestrator.md) |
+| `agents/classifier/`, `agents/synthesizer/`, `agents/critic/` | Planned home of each agent's node (`base.py`) and prompt (`prompt.py`). The files are placeholders with a TODO and hold no code yet | none | none |
+| `clients/langfuse_client.py` | Langfuse tracing client with secret masking and per-agent spans | `LangfuseClient`, `traced_agent`, `traced_tool` | [LLM Client & Settings](llm-client-and-settings.md) |
+| `clients/docling_client.py` | Local Docling document parsing with page attribution and OCR for scanned pages | `DoclingClient` | [LLM Client & Settings](llm-client-and-settings.md) |
+| `clients/clef_client.py` | Cloudflare Workers AI Clef client for typed classification questions | `ClefClient`, `ClefError`, `ClefNotConfiguredError` | [LLM Client & Settings](llm-client-and-settings.md) |
+| `schemas/clients.py` | Pydantic models and constants shared by the three clients | `AgentIdentifier`, `DocumentExtraction`, `PageExtraction`, `NoulQuestion`, `ChoiceQuestion`, `ScoreQuestion`, `ClefResult` | [LLM Client & Settings](llm-client-and-settings.md) |
+| `utils/patterns/as_singleton.py` | Thread-safe singleton decorator used by the clients | `as_singleton` | none |
+| `cli.py`, `__main__.py` | Command-line demo that runs the offline pipeline on synthetic fixtures | `main()` | [Orchestrator](orchestrator.md) |

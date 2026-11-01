@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, TypedDict
+from typing import Any, Literal, TypedDict
 
 from langgraph.graph import END, START, StateGraph
+from langgraph.types import Command
 
-from exygen_agent.critic import CriticAgent
-from exygen_agent.llm_client import BaseLLMClient, get_llm_client
-from exygen_agent.synthesis_contracts import (
+from src.critic import CriticAgent
+from src.llm_client import BaseLLMClient, get_llm_client
+from src.synthesis_contracts import (
     AnchorQuestion,
     BlueprintSlot,
     CriticEvaluation,
@@ -16,7 +17,7 @@ from exygen_agent.synthesis_contracts import (
     MarkdownParseError,
     SynthesizedQuestion,
 )
-from exygen_agent.synthesizer import QuestionSynthesizerAgent
+from src.synthesizer import QuestionSynthesizerAgent
 
 logger = logging.getLogger(__name__)
 
@@ -35,18 +36,50 @@ class SlotSynthesisState(TypedDict, total=False):
     final_evaluation: CriticEvaluation | None
 
 
+def _flagged_question(
+    slot: BlueprintSlot, anchor: AnchorQuestion, max_attempts: int
+) -> SynthesizedQuestion:
+    """Placeholder question recorded when the Synthesizer never produced a parseable draft."""
+    return SynthesizedQuestion(
+        slot_number=slot.slot_number,
+        topic=slot.topic,
+        format=slot.format,
+        marks=slot.target_marks,
+        difficulty=slot.difficulty,
+        prompt=f"[Flagged: Unparseable synthesis output after {max_attempts} attempts]",
+        mcq_options=(
+            {"A": "N/A", "B": "N/A", "C": "N/A", "D": "N/A"}
+            if slot.format == "multiple_choice"
+            else None
+        ),
+        solution="A"
+        if slot.format == "multiple_choice"
+        else "Flagged for human review.",
+        explanation="Synthesis failed mandatory Markdown section validation.",
+        rationale=f"Attempted synthesis for anchor {anchor.question_id}.",
+    )
+
+
 def create_slot_synthesis_graph(
     synthesizer: QuestionSynthesizerAgent | None = None,
     critic: CriticAgent | None = None,
     llm_client: BaseLLMClient | None = None,
 ) -> Any:
-    """Builds and compiles the Synthesizer -> Critic LangGraph state machine with retry feedback loop."""
+    """Builds and compiles the Synthesizer and Critic LangGraph loop.
+
+    The agents talk to each other only through 'Command': every node returns its state
+    update together with the node to run next, so the graph has a single static edge
+    (START to synthesizer) and no conditional edges. The loop ends with 'goto=END' once the
+    Critic accepts a draft or 'max_attempts' is reached.
+    """
 
     client = llm_client or get_llm_client()
     synth_agent = synthesizer or QuestionSynthesizerAgent(llm_client=client)
     crit_agent = critic or CriticAgent(llm_client=client)
 
-    def node_synthesizer(state: SlotSynthesisState) -> dict[str, Any]:
+    def node_synthesizer(
+        state: SlotSynthesisState,
+    ) -> Command[Literal["critic", "synthesizer", "__end__"]]:
         slot = state["slot"]
         anchor = state["anchor"]
         feedback_history = list(state.get("feedback_history", []))
@@ -65,7 +98,6 @@ def create_slot_synthesis_graph(
                 anchor=anchor,
                 feedback_history=feedback_history,
             )
-            return {"current_question": question}
         except MarkdownParseError as exc:
             logger.warning(
                 "Synthesizer output failed Markdown validation on slot %d attempt %d: %s",
@@ -82,28 +114,14 @@ def create_slot_synthesis_graph(
                 issues=[str(exc)],
                 style_alignment_score=0.0,
             )
-            updated_history = feedback_history + [format_feedback]
-            next_attempt = attempt + 1
+            update: dict[str, Any] = {
+                "current_question": None,
+                "current_evaluation": None,
+                "feedback_history": [*feedback_history, format_feedback],
+                "attempt": attempt + 1,
+            }
 
-            if next_attempt > max_attempts:
-                fallback_question = state.get("final_question") or SynthesizedQuestion(
-                    slot_number=slot.slot_number,
-                    topic=slot.topic,
-                    format=slot.format,
-                    marks=slot.target_marks,
-                    difficulty=slot.difficulty,
-                    prompt=f"[Flagged: Unparseable synthesis output after {max_attempts} attempts]",
-                    mcq_options=(
-                        {"A": "N/A", "B": "N/A", "C": "N/A", "D": "N/A"}
-                        if slot.format == "multiple_choice"
-                        else None
-                    ),
-                    solution="A"
-                    if slot.format == "multiple_choice"
-                    else "Flagged for human review.",
-                    explanation="Synthesis failed mandatory Markdown section validation.",
-                    rationale=f"Attempted synthesis for anchor {anchor.question_id}.",
-                )
+            if attempt + 1 > max_attempts:
                 fallback_eval = CriticEvaluation(
                     slot_number=slot.slot_number,
                     accepted=False,
@@ -113,34 +131,21 @@ def create_slot_synthesis_graph(
                     issues=[str(exc)],
                     verifier_notes=f"Rejected due to repeated Markdown format errors: {exc}",
                 )
-                return {
-                    "current_question": None,
-                    "current_evaluation": fallback_eval,
-                    "final_question": fallback_question,
-                    "final_evaluation": fallback_eval,
-                    "feedback_history": updated_history,
-                    "attempt": next_attempt,
-                }
+                update.update(
+                    current_evaluation=fallback_eval,
+                    final_question=state.get("final_question")
+                    or _flagged_question(slot, anchor, max_attempts),
+                    final_evaluation=fallback_eval,
+                )
+                return Command(update=update, goto=END)
 
-            return {
-                "current_question": None,
-                "current_evaluation": None,
-                "feedback_history": updated_history,
-                "attempt": next_attempt,
-            }
+            return Command(update=update, goto="synthesizer")
 
-    def route_after_synthesizer(state: SlotSynthesisState) -> str:
-        if state.get("current_question") is not None:
-            return "critic"
+        return Command(update={"current_question": question}, goto="critic")
 
-        attempt = state.get("attempt", 1)
-        max_attempts = state.get("max_attempts", 3)
-        if attempt <= max_attempts:
-            return "retry_synthesis"
-
-        return "max_retries_exceeded"
-
-    def node_critic(state: SlotSynthesisState) -> dict[str, Any]:
+    def node_critic(
+        state: SlotSynthesisState,
+    ) -> Command[Literal["synthesizer", "__end__"]]:
         slot = state["slot"]
         anchor = state["anchor"]
         question = state["current_question"]
@@ -183,83 +188,45 @@ def create_slot_synthesis_graph(
         )
 
         if evaluation.accepted:
-            return {
-                "current_evaluation": evaluation,
-                "final_question": question,
-                "final_evaluation": evaluation,
-            }
+            return Command(
+                update={
+                    "current_evaluation": evaluation,
+                    "final_question": question,
+                    "final_evaluation": evaluation,
+                },
+                goto=END,
+            )
 
-        # If rejected, record feedback in working memory
+        # Rejected: record the verdict as working memory for the next Synthesizer attempt.
         new_feedback = CriticFeedback(
             attempt=attempt,
             verifier_notes=evaluation.verifier_notes,
             issues=evaluation.issues,
             style_alignment_score=evaluation.style_alignment_score,
         )
-        updated_history = feedback_history + [new_feedback]
-        next_attempt = attempt + 1
+        update = {
+            "current_evaluation": evaluation,
+            "final_question": question,
+            "feedback_history": [*feedback_history, new_feedback],
+            "attempt": attempt + 1,
+        }
 
-        # If we reached or exceeded max attempts, finalize with flagged evaluation
-        if next_attempt > max_attempts:
+        if attempt + 1 > max_attempts:
             logger.warning(
-                "Slot %d reached maximum attempts (%d) without full verification. Finalizing with flagged status.",
+                "Slot %d reached maximum attempts (%d) without full verification. "
+                "Finalizing with flagged status.",
                 slot.slot_number,
                 max_attempts,
             )
-            return {
-                "current_evaluation": evaluation,
-                "final_question": question,
-                "final_evaluation": evaluation,
-                "feedback_history": updated_history,
-                "attempt": next_attempt,
-            }
+            update["final_evaluation"] = evaluation
+            return Command(update=update, goto=END)
 
-        return {
-            "current_evaluation": evaluation,
-            "final_question": question,
-            "feedback_history": updated_history,
-            "attempt": next_attempt,
-        }
-
-    def decide_next_step(state: SlotSynthesisState) -> str:
-        evaluation = state.get("current_evaluation")
-        attempt = state.get("attempt", 1)
-        max_attempts = state.get("max_attempts", 3)
-
-        if evaluation and evaluation.accepted:
-            return "accepted"
-
-        if attempt <= max_attempts:
-            return "retry"
-
-        return "max_retries_exceeded"
+        return Command(update=update, goto="synthesizer")
 
     graph = StateGraph(SlotSynthesisState)
-
     graph.add_node("synthesizer", node_synthesizer)
     graph.add_node("critic", node_critic)
-
     graph.add_edge(START, "synthesizer")
-
-    graph.add_conditional_edges(
-        "synthesizer",
-        route_after_synthesizer,
-        {
-            "critic": "critic",
-            "retry_synthesis": "synthesizer",
-            "max_retries_exceeded": END,
-        },
-    )
-
-    graph.add_conditional_edges(
-        "critic",
-        decide_next_step,
-        {
-            "accepted": END,
-            "retry": "synthesizer",
-            "max_retries_exceeded": END,
-        },
-    )
 
     return graph.compile()
 
@@ -294,7 +261,9 @@ def run_slot_synthesis(
     final_state = compiled_graph.invoke(initial_state)
 
     final_q = final_state.get("final_question") or final_state.get("current_question")
-    final_e = final_state.get("final_evaluation") or final_state.get("current_evaluation")
+    final_e = final_state.get("final_evaluation") or final_state.get(
+        "current_evaluation"
+    )
 
     if not final_q or not final_e:
         raise RuntimeError(

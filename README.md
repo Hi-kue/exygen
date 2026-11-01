@@ -32,6 +32,7 @@ By combining traceable document extraction with explicit validation boundaries i
     - [Monorepo Layout](#monorepo-layout)
     - [Applications](#applications)
   - [Installation](#installation)
+    - [Make Commands](#make-commands)
     - [Common Nx Commands](#common-nx-commands)
     - [Workspace Scripts (`scripts/`)](#workspace-scripts-scripts)
   - [Documentation](#documentation)
@@ -103,6 +104,33 @@ cd exygen
 pnpm install
 uv sync --all-packages
 ```
+
+### Make Commands
+
+The root `Makefile` wraps the workspace scripts and Nx targets. It needs GNU Make, which Windows does not include (`winget install ezwinports.make`). It calls `scripts/*.sh` on Linux and macOS, and `scripts/win/*.ps1` on Windows.
+
+```bash
+# List every command
+make help
+
+# Unblock scripts, write missing .env files, install dependencies
+make setup
+
+# Clean everything, reinstall, build, and run agent, api, and web
+make dev
+
+# Same chain for one app
+make dev-web
+
+# Run without cleaning or building
+make run
+make run APPS="api web"
+
+# Run tests across all projects
+make test
+```
+
+`make dev` deletes `node_modules` and `.venv` on every run and reinstalls them. Use `make run` to restart without that cost. The `tui` commands stop with an error until `apps/tui` exists, and `make migrate` does nothing until Exygen has a database.
 
 ### Common Nx Commands
 

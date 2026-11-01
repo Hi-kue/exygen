@@ -28,14 +28,14 @@ Exygen operates in four stages. Each stage has its own page covering its respons
 | 3 | LangGraph Synthesis Loop | The Synthesizer synthesizes an original question per slot and the Critic verifies it, looping back with feedback on rejection | [Synthesizer](agents/synthesizer.md), [Critic](agents/critic.md), [Synthesis Graph](agents/synthesis-graph.md) |
 | 4 | Assembly & Provenance | Packages verified questions, answer keys, explanations, and the style alignment audit trace for the web studio and export | [Assembly](agents/assembly.md) |
 
-Stage 3 iterates slot by slot, one question per cycle. The Synthesizer (`QuestionSynthesizerAgent`) writes an original question anchored to the exemplar. The Critic (`CriticAgent`) checks correctness, solvability, and style alignment. Rejected or malformed drafts loop back to the Synthesizer with working-memory feedback for up to `max_attempts = 3`.
+Stage 3 iterates slot by slot, one question per cycle. The Synthesizer (`QuestionSynthesizerAgent`) writes an original question anchored to the exemplar. The Critic (`CriticAgent`) checks correctness, solvability, and style alignment. Rejected or malformed drafts loop back to the Synthesizer with working-memory feedback for up to `max_attempts = 3`. The two agents hand work to each other with LangGraph `Command` (`update` plus `goto`), described on the [Synthesis Graph](agents/synthesis-graph.md) page.
 
 !!! note "Two views of the pipeline"
     This section describes the four stages as implemented in `apps/agent`. The blueprint's six logical agent roles (Extraction, Style Analysis, Planning, Generation, Validation, Assembly) are summarized on the [Architecture](../architecture.md) page. The two views describe the same workflow at different granularity.
 
 ## Module Map
 
-Every file in `apps/agent/src/exygen_agent/`, with its responsibility and key classes, is listed on the [Python Modules](modules.md) page.
+Every file in `apps/agent/src/`, with its responsibility and key classes, is listed on the [Python Modules](modules.md) page.
 
 ## Commands
 

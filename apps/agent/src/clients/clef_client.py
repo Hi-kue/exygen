@@ -51,6 +51,7 @@ from urllib.parse import quote
 import httpx
 from langfuse import get_client
 from pydantic import SecretStr, ValidationError
+
 from src.clients.langfuse_client import traced_tool
 from src.schemas.clients import (
     CLEF_ANSWER_MODELS,

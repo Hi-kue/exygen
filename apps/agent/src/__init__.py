@@ -1,4 +1,4 @@
-from exygen_agent.contracts import (
+from src.contracts import (
     AssembledExam,
     DocumentPage,
     ExamBlueprint,
@@ -11,10 +11,15 @@ from exygen_agent.contracts import (
     StyleProfile,
     ValidationReport,
 )
-from exygen_agent.critic import CriticAgent, build_critic_prompt, parse_critic_markdown
-from exygen_agent.llm_client import BaseLLMClient, MockLLMClient, OpenRouterClient, get_llm_client
-from exygen_agent.orchestrator import ExamPipelineOrchestrator, default_synthetic_documents
-from exygen_agent.synthesis_contracts import (
+from src.critic import CriticAgent, build_critic_prompt, parse_critic_markdown
+from src.llm_client import (
+    BaseLLMClient,
+    MockLLMClient,
+    OpenRouterClient,
+    get_llm_client,
+)
+from src.orchestrator import ExamPipelineOrchestrator, default_synthetic_documents
+from src.synthesis_contracts import (
     AnchorQuestion,
     BlueprintSlot,
     CriticEvaluation,
@@ -24,13 +29,13 @@ from exygen_agent.synthesis_contracts import (
     SynthesizedQuestion,
     extract_markdown_sections,
 )
-from exygen_agent.synthesis_graph import (
+from src.synthesis_graph import (
     SlotSynthesisState,
     create_slot_synthesis_graph,
     run_slot_synthesis,
     synthesize_exam_slots,
 )
-from exygen_agent.synthesizer import (
+from src.synthesizer import (
     QuestionSynthesizerAgent,
     build_synthesis_prompt,
     parse_synthesized_markdown,

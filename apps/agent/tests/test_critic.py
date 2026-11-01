@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from exygen_agent import (
+from src import (
     AnchorQuestion,
     BlueprintSlot,
     CriticAgent,
@@ -101,7 +101,9 @@ Detailed verification complete.
     assert evaluation.code_sandbox_passed is None
 
 
-def test_parse_critic_missing_mandatory_headers_raises_error(sample_slot: BlueprintSlot) -> None:
+def test_parse_critic_missing_mandatory_headers_raises_error(
+    sample_slot: BlueprintSlot,
+) -> None:
     # Missing ## VERIFIER_NOTES
     raw = """## ACCEPTED
 true
@@ -114,7 +116,9 @@ true
     assert "## VERIFIER_NOTES" in exc_info.value.missing_sections
 
 
-def test_parse_critic_unparseable_accepted_raises_error(sample_slot: BlueprintSlot) -> None:
+def test_parse_critic_unparseable_accepted_raises_error(
+    sample_slot: BlueprintSlot,
+) -> None:
     raw = """## ACCEPTED
 maybe / undecided
 
@@ -140,7 +144,7 @@ def test_critic_agent_evaluate_end_to_end(
     assert evaluation.slot_number == 2
     assert evaluation.accepted is True
     assert evaluation.code_sandbox_passed is None
-    assert evaluation.style_alignment_score == 0.92
+    assert evaluation.style_alignment_score == pytest.approx(0.92)
 
     prompt = build_critic_prompt(sample_slot, sample_anchor, sample_question)
     assert "(A) 1 swap, index 3" in prompt

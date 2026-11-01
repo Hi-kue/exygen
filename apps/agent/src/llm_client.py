@@ -5,7 +5,7 @@ from typing import Any
 
 from openai import OpenAI
 
-from exygen_agent.settings import settings
+from src.settings import settings
 
 
 class BaseLLMClient(ABC):
@@ -211,4 +211,6 @@ def get_llm_client(force_mock: bool = False, **kwargs: Any) -> BaseLLMClient:
     config = settings.agent
     if force_mock or config.llm_provider == "mock" or config.openrouter_api_key is None:
         return MockLLMClient(**kwargs)
-    return OpenRouterClient(api_key=config.openrouter_api_key.get_secret_value(), **kwargs)
+    return OpenRouterClient(
+        api_key=config.openrouter_api_key.get_secret_value(), **kwargs
+    )

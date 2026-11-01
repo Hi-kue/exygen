@@ -38,6 +38,7 @@ from typing import Any
 
 from langfuse import Langfuse, observe, propagate_attributes
 from langfuse.langchain import CallbackHandler
+
 from src.schemas.clients import MAX_FIELD_CHARS, SECRET_PATTERN, AgentIdentifier
 from src.settings import settings
 from src.utils.patterns.as_singleton import as_singleton

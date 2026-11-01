@@ -72,12 +72,12 @@ foreach ($arg in $args) {
         "--agent" { $Requested.Add("agent") }
         "--api" { $Requested.Add("api") }
         "--web" { $Requested.Add("web") }
-        { $_.StartsWith("-") } {
-            error "Unknown option: $arg"
-            Show-Usage
-            exit 1
-        }
         default {
+            if ($arg.StartsWith("-")) {
+                error "Unknown option: $arg"
+                Show-Usage
+                exit 1
+            }
             foreach ($part in ($arg -split ",")) {
                 $norm = Normalize-Target $part
                 if (-not $norm) {

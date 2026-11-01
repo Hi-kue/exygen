@@ -124,12 +124,12 @@ foreach ($arg in $args) {
         "--agent" { $RawTargets.Add("agent") }
         "--api" { $RawTargets.Add("api") }
         "--web" { $RawTargets.Add("web") }
-        { $_.StartsWith("-") } {
-            error "Unknown option: $arg"
-            Show-Usage
-            exit 1
-        }
         default {
+            if ($arg.StartsWith("-")) {
+                error "Unknown option: $arg"
+                Show-Usage
+                exit 1
+            }
             foreach ($part in ($arg -split ",")) {
                 $RawTargets.Add($part)
             }

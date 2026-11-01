@@ -16,7 +16,7 @@ hide:
 
 ## Summary
 
-This page will serve as a structured reference for <% tp.file.title %> dated: <% tp.file.creation_date %>. It will provide key insights, important details, and relevant connections to other topics (backlinks). 
+This page will serve as a structured reference for <% tp.file.title %> dated: <% tp.file.creation_date %>. It will provide key insights, important details, and relevant connections to other topics (backlinks).
 
 > [!NOTE] Important
 > This note is a template for a doc note, it should be refactored to meet the needs of the

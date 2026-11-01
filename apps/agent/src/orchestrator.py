@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from exygen_agent.agents import (
+from src.agents import (
     AssemblyAgent,
     ExamPlanningAgent,
     ExtractionAgent,
@@ -8,7 +8,7 @@ from exygen_agent.agents import (
     StyleAnalysisAgent,
     ValidationAgent,
 )
-from exygen_agent.contracts import (
+from src.contracts import (
     AssembledExam,
     DocumentPage,
     ExamGenerationRequest,
@@ -74,7 +74,9 @@ class ExamPipelineOrchestrator:
     def extract_document(self, document: SourceDocument) -> ExtractedExam:
         return self.extraction_agent.extract(document)
 
-    def build_profile(self, profile_id: str, exams: list[ExtractedExam]) -> StyleProfile:
+    def build_profile(
+        self, profile_id: str, exams: list[ExtractedExam]
+    ) -> StyleProfile:
         return self.style_agent.analyze(profile_id=profile_id, exams=exams)
 
     def generate_exam(

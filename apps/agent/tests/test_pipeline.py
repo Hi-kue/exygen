@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from exygen_agent import (
+from src import (
     ExamGenerationRequest,
     ExamPipelineOrchestrator,
     default_synthetic_documents,

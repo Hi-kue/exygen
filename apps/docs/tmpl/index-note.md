@@ -32,6 +32,6 @@ The purpose/goal of this collection is to create a structured body of knowledge 
 
 While you are free to explore the entire section, here are a few of the selected hand-picked notes and documents that provide a good introduction to getting started with this section:
 
-- **[[A Foundational Note]]**: This note covers the basics and is the best place to begin. It establishes the vocabulary and core principles used elsewhere. 
+- **[[A Foundational Note]]**: This note covers the basics and is the best place to begin. It establishes the vocabulary and core principles used elsewhere.
 - **[[An Interesting Case Study]]**: A practical application of the concepts discussed here, showing them in a real-world context.
 - **[[A Deep Dive Article]]**: For those who want to explore a specific, complex topic in more detail.

@@ -1,4 +1,4 @@
-from clients import (
+from src.schemas.clients import (
     CLEF_QUESTION_ID_PATTERN,
     CLEF_RETRYABLE_STATUSES,
     IMAGE_SUFFIXES,

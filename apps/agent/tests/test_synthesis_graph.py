@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 from openai import APIError
 
-from exygen_agent import (
+from src import (
     AnchorQuestion,
     BlueprintSlot,
     CriticFeedback,
@@ -16,7 +16,7 @@ from exygen_agent import (
     run_slot_synthesis,
     synthesize_exam_slots,
 )
-from exygen_agent.settings import settings
+from src.settings import settings
 
 
 @pytest.fixture
@@ -166,7 +166,7 @@ Question is solvable and unambiguous. Trace verified: 2 swaps, final index 1. Ma
     assert eval_res.accepted is True
     assert eval_res.correctness_status == "verified"
     assert eval_res.code_sandbox_passed is True
-    assert eval_res.style_alignment_score == 0.94
+    assert eval_res.style_alignment_score == pytest.approx(0.94)
     assert len(eval_res.issues) == 0
     assert "Trace verified" in eval_res.verifier_notes
 
@@ -278,7 +278,7 @@ Corrected parent index arithmetic verified. Question is clean and aligned with i
     assert q.slot_number == 2
     assert "Corrected draft question text" in q.prompt
     assert evaluation.accepted is True
-    assert evaluation.style_alignment_score == 0.95
+    assert evaluation.style_alignment_score == pytest.approx(0.95)
     # Verify call history: 2 synthesizer calls + 2 critic calls = 4 total calls
     assert len(mock_client.call_history) == 4
     # Check that synthesizer call 2 received the feedback from attempt 1
@@ -407,7 +407,7 @@ Flaw persists.
         ]
     )
 
-    q, evaluation = run_slot_synthesis(
+    _, evaluation = run_slot_synthesis(
         slot=sample_slot,
         anchor=sample_anchor,
         max_attempts=3,

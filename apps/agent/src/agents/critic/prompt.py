@@ -1,1 +1,1 @@
-# TODO: Implement prompt for critic agent node.
+AGENT_CRITIC_PROMPT: str = """"""

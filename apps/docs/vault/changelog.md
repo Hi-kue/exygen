@@ -32,15 +32,20 @@ Each component keeps its own `changelogs/` folder with one file per release or b
 ## Agent
 
 - **Source**: `apps/agent`, the Python multi-agent pipeline and Pydantic contracts.
-- **Latest**: [2026-10-29-changelog-clients-naming](agent/changelogs/2026-10-29-changelog-clients-naming.md)
+- **Latest**: [2026-10-29-changelog-command-handoffs](agent/changelogs/2026-10-29-changelog-command-handoffs.md)
+- **Earlier today**: [2026-10-29-changelog-clients-naming](agent/changelogs/2026-10-29-changelog-clients-naming.md)
 
 ### [Unreleased] - 2026-10-29
 
 #### Added
+
 - Langfuse, Docling and Clef clients, with `CF_*`, `DOCLING_*` and `AGENT_CLEF_*` settings.
 
 #### Changed/Refactored
+
 - Agents are named Classifier, Synthesizer and Critic instead of Agent 1, 2 and 3.
+- The Synthesizer and Critic hand off with LangGraph `Command` instead of conditional edges.
+- The agent package uses the flat `src` layout and `src.<module>` imports.
 
 ---
 
@@ -61,14 +66,14 @@ Each component keeps its own `changelogs/` folder with one file per release or b
 ## Platform
 
 - **Source**: Monorepo configuration (Nx, uv, pnpm), root scripts, and `apps/docs`.
-- **Latest**: [2026-10-24-changelog-docs-nx-setup](platform/changelogs/2026-10-24-changelog-docs-nx-setup.md)
+- **Latest**: [2026-11-01-changelog-makefile](platform/changelogs/2026-11-01-changelog-makefile.md)
 
-### [Unreleased] - 2026-10-24
+### [Unreleased] - 2026-11-01
 
 #### Added
 
-The docs site is now an Nx project (`docs`) with `dev` and `build` targets, and the docs conventions live in a project skill at `.agents/skills/docs/SKILL.md`.
+A root `Makefile` chains the workspace scripts and Nx targets into commands such as `make setup`, `make dev`, and `make test`.
 
-#### Changed/Refactored
+#### Fixed
 
-Rebranded the docs app from the RBX template to Exygen, removed the password-gated private pages feature, and pinned LF line endings for the repository.
+The Windows PowerShell scripts in `scripts/win/` now accept flags, and `run.ps1` runs the correct project when given one target.

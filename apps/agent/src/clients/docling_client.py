@@ -59,6 +59,7 @@ from docling.exceptions import ConversionError
 from docling_core.transforms.chunker.hybrid_chunker import HybridChunker
 from docling_core.types.doc.document import DoclingDocument
 from langfuse import get_client
+
 from src.clients.langfuse_client import traced_tool
 from src.schemas.clients import (
     MIN_TEXT_LAYER_CHARS,

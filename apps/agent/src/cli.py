@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import json
 
-from exygen_agent.contracts import ExamGenerationRequest
-from exygen_agent.orchestrator import ExamPipelineOrchestrator, default_synthetic_documents
+from src.contracts import ExamGenerationRequest
+from src.orchestrator import ExamPipelineOrchestrator, default_synthetic_documents
 
 
 def main() -> None:
@@ -14,7 +14,9 @@ def main() -> None:
     exam = orchestrator.generate_exam(
         exam_id="exam-demo-001",
         profile=profile,
-        request=ExamGenerationRequest(profile_id=profile.id, question_count=4, total_marks=40),
+        request=ExamGenerationRequest(
+            profile_id=profile.id, question_count=4, total_marks=40
+        ),
         source_exams=extracted,
     )
     summary = {

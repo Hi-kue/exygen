@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import re
 
-from exygen_agent.llm_client import BaseLLMClient, get_llm_client
-from exygen_agent.synthesis_contracts import (
+from src.llm_client import BaseLLMClient, get_llm_client
+from src.synthesis_contracts import (
     AnchorQuestion,
     BlueprintSlot,
     CriticFeedback,
@@ -79,7 +79,9 @@ def build_synthesis_prompt(
             feedback_lines.append(f"  Notes: {fb.verifier_notes}")
             if fb.issues:
                 feedback_lines.append(f"  Issues flagged: {', '.join(fb.issues)}")
-            feedback_lines.append(f"  Style alignment score: {fb.style_alignment_score}")
+            feedback_lines.append(
+                f"  Style alignment score: {fb.style_alignment_score}"
+            )
         feedback_lines.append(
             "\nPlease revise the question thoroughly to eliminate these defects while maintaining structural alignment.\n"
         )
@@ -124,7 +126,7 @@ def _parse_mcq_options(options_raw: str) -> dict[str, str]:
     current_lines: list[str] = []
 
     option_start_pattern = re.compile(
-        r"^(?:[-*•]\s*)?\*{0,2}(?:\(([A-Da-d])\)|([A-Da-d])[\.\)\:])\*{0,2}\s*(.*)$"
+        r"^(?:[-*\u2022]\s*)?\*{0,2}(?:\(([A-Da-d])\)|([A-Da-d])[\.\)\:])\*{0,2}\s*(.*)$"
     )
 
     for raw_line in options_raw.splitlines():
@@ -174,7 +176,10 @@ def parse_synthesized_markdown(text: str, slot: BlueprintSlot) -> SynthesizedQue
     sections = extract_markdown_sections(text, SYNTHESIZER_KNOWN_HEADERS)
 
     prompt = (
-        sections.get("QUESTION") or sections.get("PROMPT") or sections.get("QUESTION_TEXT") or ""
+        sections.get("QUESTION")
+        or sections.get("PROMPT")
+        or sections.get("QUESTION_TEXT")
+        or ""
     ).strip()
     solution = (sections.get("SOLUTION") or sections.get("ANSWER") or "").strip()
     explanation = (sections.get("EXPLANATION") or "").strip()
@@ -199,7 +204,9 @@ def parse_synthesized_markdown(text: str, slot: BlueprintSlot) -> SynthesizedQue
         else:
             parsed_options = _parse_mcq_options(options_raw)
             missing_keys = [
-                k for k in REQUIRED_MCQ_KEYS if k not in parsed_options or not parsed_options[k]
+                k
+                for k in REQUIRED_MCQ_KEYS
+                if k not in parsed_options or not parsed_options[k]
             ]
             if missing_keys:
                 raise MarkdownParseError(
@@ -218,7 +225,9 @@ def parse_synthesized_markdown(text: str, slot: BlueprintSlot) -> SynthesizedQue
     if slot.format == "multiple_choice":
         solution = _normalize_mcq_solution(solution)
 
-    code_test_cases = (sections.get("CODE_TEST_CASES") or sections.get("TEST_CASES") or "").strip()
+    code_test_cases = (
+        sections.get("CODE_TEST_CASES") or sections.get("TEST_CASES") or ""
+    ).strip()
     if not code_test_cases or code_test_cases.lower() in {"none", "n/a", "null"}:
         code_test_cases = None
 
@@ -241,7 +250,9 @@ def parse_synthesized_markdown(text: str, slot: BlueprintSlot) -> SynthesizedQue
 class QuestionSynthesizerAgent:
     """Synthesizer: Generates original exemplar-anchored questions using Markdown-structured prompts."""
 
-    def __init__(self, llm_client: BaseLLMClient | None = None, model: str | None = None) -> None:
+    def __init__(
+        self, llm_client: BaseLLMClient | None = None, model: str | None = None
+    ) -> None:
         self.llm_client = llm_client or get_llm_client()
         self.model = model
 
@@ -251,7 +262,9 @@ class QuestionSynthesizerAgent:
         anchor: AnchorQuestion,
         feedback_history: list[CriticFeedback] | None = None,
     ) -> SynthesizedQuestion:
-        prompt = build_synthesis_prompt(slot=slot, anchor=anchor, feedback_history=feedback_history)
+        prompt = build_synthesis_prompt(
+            slot=slot, anchor=anchor, feedback_history=feedback_history
+        )
         response_text = self.llm_client.complete(
             prompt=prompt,
             system_prompt=SYSTEM_PROMPT,

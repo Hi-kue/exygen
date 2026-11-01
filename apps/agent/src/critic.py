@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import re
 
-from exygen_agent.llm_client import BaseLLMClient, get_llm_client
-from exygen_agent.synthesis_contracts import (
+from src.llm_client import BaseLLMClient, get_llm_client
+from src.synthesis_contracts import (
     AnchorQuestion,
     BlueprintSlot,
     CorrectnessStatus,
@@ -23,8 +23,26 @@ CRITIC_KNOWN_HEADERS = {
     "NOTES",
 }
 
-AFFIRMATIVE_TOKENS = {"true", "yes", "1", "pass", "passed", "accepted", "accept", "verified"}
-NEGATIVE_TOKENS = {"false", "no", "0", "fail", "failed", "rejected", "reject", "flagged"}
+AFFIRMATIVE_TOKENS = {
+    "true",
+    "yes",
+    "1",
+    "pass",
+    "passed",
+    "accepted",
+    "accept",
+    "verified",
+}
+NEGATIVE_TOKENS = {
+    "false",
+    "no",
+    "0",
+    "fail",
+    "failed",
+    "rejected",
+    "reject",
+    "flagged",
+}
 NA_TOKENS = {"n/a", "na", "none", "null", "not_applicable", "not applicable", ""}
 
 SYSTEM_PROMPT = """You are the Critic (Verifier Interface) for Exygen, an advanced AI application that crafts instructor-aligned Computer Science practice exams.
@@ -173,7 +191,9 @@ def parse_critic_markdown(text: str, slot: BlueprintSlot) -> CriticEvaluation:
     accepted = accepted_parsed
 
     # Parse CORRECTNESS_STATUS
-    status_raw = re.sub(r"[*_`]", "", sections.get("CORRECTNESS_STATUS", "")).strip().lower()
+    status_raw = (
+        re.sub(r"[*_`]", "", sections.get("CORRECTNESS_STATUS", "")).strip().lower()
+    )
     status: CorrectnessStatus = "verified" if accepted else "flagged"
     for candidate_status in ("verified", "flagged", "unverified"):
         if candidate_status in status_raw.split():
@@ -198,10 +218,21 @@ def parse_critic_markdown(text: str, slot: BlueprintSlot) -> CriticEvaluation:
     # Parse ISSUES
     issues_raw = sections.get("ISSUES", "").strip()
     issues: list[str] = []
-    if issues_raw and issues_raw.lower() not in {"none", "n/a", "null", "no issues", "none."}:
+    if issues_raw and issues_raw.lower() not in {
+        "none",
+        "n/a",
+        "null",
+        "no issues",
+        "none.",
+    }:
         for line in issues_raw.splitlines():
-            line_clean = line.strip().lstrip("-*•").strip()
-            if line_clean and line_clean.lower() not in {"none", "n/a", "no issues", "none."}:
+            line_clean = line.strip().lstrip("-*\u2022").strip()
+            if line_clean and line_clean.lower() not in {
+                "none",
+                "n/a",
+                "no issues",
+                "none.",
+            }:
                 issues.append(line_clean)
 
     return CriticEvaluation(
@@ -219,7 +250,9 @@ def parse_critic_markdown(text: str, slot: BlueprintSlot) -> CriticEvaluation:
 class CriticAgent:
     """Critic: Evaluates question candidate for correctness, solvability, and style alignment."""
 
-    def __init__(self, llm_client: BaseLLMClient | None = None, model: str | None = None) -> None:
+    def __init__(
+        self, llm_client: BaseLLMClient | None = None, model: str | None = None
+    ) -> None:
         self.llm_client = llm_client or get_llm_client()
         self.model = model
 

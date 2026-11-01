@@ -1,1 +1,1 @@
-# TODO: Implement prompt for synthesizer agent node.
+AGENT_SYNTHESIZER_PROMPT: str = """"""
