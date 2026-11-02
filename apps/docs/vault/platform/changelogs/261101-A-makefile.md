@@ -1,7 +1,7 @@
 ---
-title: Makefile
+title: 261101-A Makefile
 date: Sunday 1st November 2026 12:50:00
-modified_date: Sunday 1st November 2026 12:50:00
+modified_date: Sunday 1st November 2026 16:20:00
 summary: Added a root Makefile that chains the workspace scripts and Nx targets, and fixed flag parsing in the Windows PowerShell scripts.
 tags:
     - changelog
@@ -11,7 +11,7 @@ hide:
     - toc
 ---
 
-# Unreleased - 2026-11-01
+# 261101-A Makefile
 
 ## Summary
 

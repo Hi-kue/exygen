@@ -1,7 +1,7 @@
 ---
-title: Docs Nx Setup
+title: 261024-A Docs Nx Setup
 date: Saturday 24th October 2026 18:40:00
-modified_date: Saturday 24th October 2026 18:40:00
+modified_date: Sunday 1st November 2026 16:20:00
 summary: Hooked the Zensical docs site into the Nx monorepo, rebranded it for Exygen, and added the docs agent skill.
 tags:
     - changelog
@@ -11,7 +11,7 @@ hide:
     - toc
 ---
 
-# Unreleased - 2026-10-24
+# 261024-A Docs Nx Setup
 
 ## Summary
 

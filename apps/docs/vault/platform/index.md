@@ -1,7 +1,7 @@
 ---
 title: Platform
 date: Saturday 24th October 2026 18:40:00
-modified_date: Sunday 1st November 2026 12:50:00
+modified_date: Sunday 1st November 2026 14:45:00
 summary: Monorepo tooling, root scripts, and the docs site that sit around the agent, api, and web apps.
 tags:
     - platform
@@ -54,6 +54,10 @@ pnpm nx run docs:build
 ```
 
 The docs source lives in `apps/docs/vault`. Zensical settings live in `apps/docs/zensical.toml`. Contributor and agent conventions for writing docs and changelogs are in `.agents/skills/docs/SKILL.md`.
+
+## Deployment
+
+The planned production infrastructure is described in the [Deployment](../architecture.md#deployment) section of the Architecture page. It is not deployed yet.
 
 ## Changelog
 

@@ -1,5 +1,5 @@
 ---
-title: <% tp.system.prompt("What is the Title of this Note?") %>
+title: <% tp.system.prompt("Date ID and short title, such as 261029-B Command Handoffs") %>
 date: <% tp.file.creation_date("dddd Do MMMM YYYY HH:mm:ss") %>
 modified_date: <% tp.file.last_modified_date("dddd Do MMMM YYYY HH:mm:ss") %>
 summary: <% tp.system.prompt("Provide a Summary of the Note (Optional)") %>
@@ -14,7 +14,7 @@ hide:
     - toc
 ---
 
-# [version or Unreleased] - [YYYY-MM-DD]
+# [YYMMDD-X] [Short Title]
 
 ## Summary
 

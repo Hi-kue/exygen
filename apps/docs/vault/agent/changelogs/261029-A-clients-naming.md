@@ -1,7 +1,7 @@
 ---
-title: Agent clients and agent naming
+title: 261029-A Agent Clients and Naming
 date: Thursday 29th October 2026 02:00:00
-modified_date: Thursday 29th October 2026 02:00:00
+modified_date: Sunday 1st November 2026 16:20:00
 summary: Adds the Langfuse, Docling and Clef clients to the agent package, moves the Clef tuning into AGENT_CLEF_* settings, and renames Agent 1, 2 and 3 to Classifier, Synthesizer and Critic.
 tags:
     - changelog
@@ -11,7 +11,7 @@ hide:
     - toc
 ---
 
-# Unreleased - 2026-10-29
+# 261029-A Agent Clients and Naming
 
 ## Summary
 

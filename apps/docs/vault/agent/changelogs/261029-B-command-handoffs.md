@@ -1,7 +1,7 @@
 ---
-title: Command handoffs and flat src layout
+title: 261029-B Command Handoff and Src Consolidation
 date: Thursday 29th October 2026 12:00:00
-modified_date: Thursday 29th October 2026 12:00:00
+modified_date: Sunday 1st November 2026 16:20:00
 summary: The Synthesizer and Critic now hand off with LangGraph Command, the agent package uses the flat src layout, and the sources are lint clean with ASCII-only text.
 tags:
     - changelog
@@ -11,7 +11,7 @@ hide:
     - toc
 ---
 
-# Unreleased - 2026-10-29
+# 261029-B Command Handoff and Src Consolidation
 
 ## Summary
 
@@ -33,7 +33,7 @@ This changelog, dated 2026-10-29, covers the Unreleased state of the agent compo
 - `agents/__init__.py` only re-exports. The `exygen_agent.*` imports in `src/` and `tests/` are now `src.*`.
 - `pyproject.toml` and `project.json`: the wheel package is `src`, the `exygen-agent` script is `src.cli:main`, the Nx `sourceRoot` is `apps/agent/src`, and `agent:dev` runs `python -m src` from `apps/agent`.
 - Sources use LF line endings and ASCII text. The bullet character in the Markdown list parsers is written as an escape.
-- Docs: [Synthesis Graph](../agents/synthesis-graph.md) documents the handoff rules, [Python Modules](../modules.md) lists the flat layout, and [Testing](../testing.md) uses `uv run`.
+- Docs: [Synthesis Graph](../pipeline.md#synthesis-graph) documents the handoff rules, [Python Modules](../reference.md#python-modules) lists the flat layout, and [Testing](../reference.md#testing) uses `uv run`.
 
 ### Fixed
 

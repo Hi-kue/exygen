@@ -103,6 +103,7 @@ Exygen uses an Nx monorepo combining Python workspaces managed by `uv` and TypeS
 - Document processing: Local Python PDF and text parsing, adding OCR only if scanned samples require it.
 - Model provider: Configuration-based adapter for a hosted or local LLM with isolated prompt templates and a deterministic mock fallback.
 - Storage: Local files or SQLite for demo metadata.
+- Production deployment (planned, not deployed): Cloudflare Workers for `apps/web`; VMs managed by XCP-ng and Xen Orchestra for the API (`api-01`), PostgreSQL (`db-01`), and horizontally scaled code sandboxes behind HAProxy. See the Deployment section of `apps/docs/vault/architecture.md`.
 - Exports: Markdown and HTML first, with PDF support if needed.
 - Testing: `pytest` for Python packages (`apps/agent` and `apps/api`) and Vitest/TypeScript checks for `apps/web`.
 
@@ -248,6 +249,8 @@ Do not describe Meterless or Zetaris as integrated unless the corresponding comp
 | Zetaris integration | Unconfirmed | Do not integrate unless a concrete need emerges |
 | Submission disclosure rules | Track rules pending | Record all pre-existing work |
 | Quantitative quality thresholds | Pending | Define after baseline evaluation; never manufacture results |
+| Production hosting and database | Decided, not deployed | Follow the Deployment section of `apps/docs/vault/architecture.md`; describe it as planned until it exists; keep the local demo working without it |
+| Sandbox execution mode | Open | See the Deployment section of `apps/docs/vault/architecture.md`; do not present HAProxy as a job scheduler |
 
 ## 13. First actions for implementation agents
 

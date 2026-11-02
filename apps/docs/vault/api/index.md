@@ -1,7 +1,7 @@
 ---
 title: API
 date: Saturday 24th October 2026 18:40:00
-modified_date: Saturday 24th October 2026 18:40:00
+modified_date: Sunday 1st November 2026 14:45:00
 summary: FastAPI service in apps/api that exposes the Exygen pipeline over HTTP.
 tags:
     - api
@@ -37,6 +37,10 @@ pnpm nx run api:dev
 pnpm nx run api:test
 pnpm nx run api:check
 ```
+
+## Deployment
+
+The API is planned to run in Docker on `api-01`, a VM managed by Xen Orchestra, behind Cloudflare Tunnel. This is not deployed yet. See [Deployment](../architecture.md#deployment), including the [current gaps](../architecture.md#current-state) that must close first.
 
 ## Changelog
 

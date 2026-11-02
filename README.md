@@ -217,7 +217,7 @@ scripts\win\clean.cmd --dry-run
 >
 > [`.agents/index.md`](./.agents/index.md)
 >
-> The docs site in [`apps/docs`](./apps/docs) holds the architecture overview, data policy, evaluation results, and per-component changelogs (`apps/docs/vault`). Several of these pages are still stubs. Agents and contributors update them by following [`.agents/skills/docs/SKILL.md`](./.agents/skills/docs/SKILL.md).
+> The docs site in [`apps/docs`](./apps/docs) holds the architecture overview and planned deployment, data policy, evaluation results, and per-component changelogs (`apps/docs/vault`). Several of these pages are still stubs. Agents and contributors update them by following [`.agents/skills/docs/SKILL.md`](./.agents/skills/docs/SKILL.md).
 
 The internal blueprint for Exygen is categorized within the [`.agents`](./.agents) directory. If you are looking for information regarding the six-stage agent workflow, minimum Pydantic/TypeScript data contracts, or evaluation criteria, start there.
 
@@ -228,7 +228,9 @@ Local development requires the following tools installed and available on your `
 - **Node.js 22+** and **pnpm**
 - **Python 3.12+** and **uv**
 
-> **TODO**: Write proper information about the production infrastructure requirements for the Exygen API and web studio, as well as minimum specs for local or hosted LLM providers and OCR document parsing.
+Production infrastructure is planned but not deployed. See the [Deployment section](./apps/docs/vault/architecture.md#deployment) of the architecture page for the planned Cloudflare Workers and Xen Orchestra topology.
+
+> **TODO**: Write minimum specs for local or hosted LLM providers and OCR document parsing.
 
 ## Contact/Socials for Exygen
 
