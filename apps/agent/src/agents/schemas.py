@@ -1,9 +1,19 @@
+"""Contracts exchanged by the Classifier, Synthesizer and Critic agents.
+
+This module holds the Pydantic models for the agent boundaries, the shared graph
+state, and the Markdown section extraction used to parse LLM responses.
+"""
+
 from __future__ import annotations
 
 import re
-from typing import Literal
+from typing import Literal, TypedDict
 
 from pydantic import BaseModel, Field
+
+from src.schemas import SourceDocument
+
+NOT_MEASURED = "Not measured"
 
 
 class MarkdownParseError(ValueError):
@@ -51,19 +61,54 @@ def extract_markdown_sections(text: str, known_headers: set[str]) -> dict[str, s
     return sections
 
 
+def show_measured(value: object) -> str:
+    """Returns a value for a prompt, or says it was not measured when it is None."""
+    return NOT_MEASURED if value is None else str(value)
+
+
+TagSource = Literal["clef", "keyword_rules"]
+
+
 class AnchorQuestion(BaseModel):
-    """Docling-extracted anchor question from historical exam."""
+    """A tagged question from a historical exam.
+
+    None means a value was not measured: the document did not state it, or nothing
+    could determine it. 'tag_source' records how the tags were produced, and
+    'tag_confidence' holds Clef's confidence for each tag it set.
+    """
 
     question_id: str = Field(min_length=1)
     source_document: str = Field(min_length=1)
     page_number: int = Field(ge=1)
     raw_text: str = Field(min_length=1)
-    detected_format: str = Field(default="multiple_choice")
-    marks: int = Field(gt=0)
-    topic: str = Field(min_length=1)
+    detected_format: str | None = Field(default=None, min_length=1)
+    marks: int | None = Field(default=None, gt=0)
+    topic: str | None = Field(default=None, min_length=1)
     keywords: list[str] = Field(default_factory=list)
-    archetype: str = Field(default="concept_check")
-    difficulty_estimate: str = Field(default="medium")
+    archetype: str | None = Field(default=None, min_length=1)
+    difficulty_estimate: str | None = Field(default=None, min_length=1)
+    tag_source: TagSource | None = None
+    tag_confidence: dict[str, float] = Field(default_factory=dict)
+
+
+class StructuredQuestion(BaseModel):
+    """A question read from one page of a document, before it has been tagged."""
+
+    question_id: str = Field(min_length=1)
+    source_document: str = Field(min_length=1)
+    page_number: int = Field(ge=1)
+    raw_text: str = Field(min_length=1)
+    marks: int | None = Field(default=None, gt=0)
+    keywords: list[str] = Field(default_factory=list)
+
+
+class ClassifierState(TypedDict, total=False):
+    """LangGraph state schema for turning one document into anchor questions."""
+
+    document: SourceDocument
+    structured_questions: list[StructuredQuestion]
+    anchors: list[AnchorQuestion]
+    warnings: list[str]
 
 
 class BlueprintSlot(BaseModel):
@@ -126,3 +171,17 @@ class CriticFeedback(BaseModel):
     verifier_notes: str
     issues: list[str] = Field(default_factory=list)
     style_alignment_score: float = Field(ge=0.0, le=1.0)
+
+
+class SlotSynthesisState(TypedDict, total=False):
+    """LangGraph state schema for chunk-by-chunk question synthesis and critique."""
+
+    slot: BlueprintSlot
+    anchor: AnchorQuestion
+    attempt: int
+    max_attempts: int
+    feedback_history: list[CriticFeedback]
+    current_question: SynthesizedQuestion | None
+    current_evaluation: CriticEvaluation | None
+    final_question: SynthesizedQuestion | None
+    final_evaluation: CriticEvaluation | None

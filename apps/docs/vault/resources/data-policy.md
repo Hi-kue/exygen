@@ -22,8 +22,9 @@ This page records how Exygen handles source exams and course materials. The rule
 - McGill source documents have unconfirmed permission, so use the synthetic fixtures first.
 - Never commit uploaded exams, student data, API keys, or confidential institutional files.
 - Enforce upload size and type limits, and keep retention minimal.
-- `ClefClient` sends the text it classifies to Cloudflare Workers AI. Nothing calls it yet, and the Classifier is planned to use it. Cloudflare states that it does not train models on Workers AI content ([data usage](https://developers.cloudflare.com/workers-ai/platform/data-usage/)). The text is not written to Langfuse traces.
-- The Synthesizer prompt includes the raw text of the anchor question, and the LLM provider receives it. With the `openrouter` provider, this text goes to OpenRouter and the model it routes to.
+- `ClefClient` sends the text it classifies to Cloudflare Workers AI when `CF_ACCOUNT_ID` and `CF_AUTH_TOKEN` are set, and the Classifier uses it for tagging. Cloudflare states that it does not train models on Workers AI content ([data usage](https://developers.cloudflare.com/workers-ai/platform/data-usage/)).
+- The Classifier prompt includes the text of each source page, and the Synthesizer and Critic prompts include the raw text of the anchor question. The LLM provider receives all of them. With the `openrouter` provider, this text goes to OpenRouter and the model it routes to.
+- When `LANGFUSE_IS_TELEMETRY_ENABLED` is true and the Langfuse keys are set, graph runs send the full LLM prompts, the responses, and the graph state to Langfuse, so source exam text is stored there. Secrets are masked and each value is cut at 20,000 characters, but the exam text itself is not removed. Only enable tracing for documents that may be stored in the configured Langfuse project.
 
 ## Planned Production Hosting
 

@@ -135,7 +135,7 @@ def test_critic_agent_evaluate_end_to_end(
     sample_question: SynthesizedQuestion,
 ) -> None:
     mock_client = MockLLMClient()
-    critic = CriticAgent(llm_client=mock_client)
+    critic = CriticAgent(llm=mock_client)
     evaluation = critic.evaluate(
         slot=sample_slot,
         anchor=sample_anchor,

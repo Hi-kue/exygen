@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from src.contracts import (
+from src.schemas import (
     AssembledExam,
     DifficultyLevel,
     ExamBlueprint,

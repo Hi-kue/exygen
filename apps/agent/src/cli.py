@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import json
 
-from src.contracts import ExamGenerationRequest
 from src.orchestrator import ExamPipelineOrchestrator, default_synthetic_documents
+from src.schemas import ExamGenerationRequest
 
 
 def main() -> None:

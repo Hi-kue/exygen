@@ -59,7 +59,7 @@ def test_synthesizer_agent_mcq_end_to_end(
     sample_anchor: AnchorQuestion,
 ) -> None:
     mock_client = MockLLMClient()
-    agent = QuestionSynthesizerAgent(llm_client=mock_client)
+    agent = QuestionSynthesizerAgent(llm=mock_client)
     q = agent.synthesize(slot=mcq_slot, anchor=sample_anchor)
 
     assert q.slot_number == 2

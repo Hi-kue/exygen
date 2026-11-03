@@ -34,10 +34,14 @@ import inspect
 import logging
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
+from dataclasses import asdict, is_dataclass
+from datetime import date
 from typing import Any
+from uuid import UUID
 
 from langfuse import Langfuse, observe, propagate_attributes
 from langfuse.langchain import CallbackHandler
+from pydantic import BaseModel
 
 from src.schemas.clients import MAX_FIELD_CHARS, SECRET_PATTERN, AgentIdentifier
 from src.settings import settings
@@ -57,8 +61,14 @@ def _mask(*, data: Any, **_: Any) -> Any:
     can be large, and traces must never carry credentials (AGENTS.md section 3.8).
 
     Strings have API keys and bearer tokens replaced with '[REDACTED]' and are cut
-    at 'MAX_FIELD_CHARS' characters. Dicts, lists and tuples are masked
-    recursively, with tuples returned as lists. Any other value is returned as is.
+    at 'MAX_FIELD_CHARS' characters. Dicts, lists, tuples and sets are masked
+    recursively, with tuples and sets returned as lists. Pydantic models, which
+    include LangChain messages, and dataclasses are converted to dicts and masked.
+
+    Masking fails closed: a value of any other type is converted to a string and
+    masked, because the SDK would otherwise serialize its contents unmasked. Only
+    numbers, booleans, None, dates and UUIDs, which cannot hold a secret, are
+    returned as is.
 
     Args:
         data: The value to mask.
@@ -73,11 +83,17 @@ def _mask(*, data: Any, **_: Any) -> Any:
             dropped = len(redacted) - MAX_FIELD_CHARS
             return f"{redacted[:MAX_FIELD_CHARS]}...[truncated {dropped} chars]"
         return redacted
+    if data is None or isinstance(data, bool | int | float | date | UUID):
+        return data
     if isinstance(data, dict):
         return {key: _mask(data=value) for key, value in data.items()}
-    if isinstance(data, list | tuple):
+    if isinstance(data, list | tuple | set | frozenset):
         return [_mask(data=value) for value in data]
-    return data
+    if isinstance(data, BaseModel):
+        return _mask(data=data.model_dump())
+    if is_dataclass(data) and not isinstance(data, type):
+        return _mask(data=asdict(data))
+    return _mask(data=str(data))
 
 
 def _disabled_reason() -> str:

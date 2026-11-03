@@ -4,23 +4,15 @@ import re
 from enum import StrEnum
 from typing import Any, Literal
 
-from docling.datamodel.base_models import InputFormat
 from pydantic import BaseModel, Field
 
 # region Docling Client Specifics
 
+# NOTE:
+# This file must not import Docling, which takes several seconds to load, because
+# every client imports it. 'SUFFIX_FORMATS' needs Docling's types, so it lives in
+# 'clients/docling_client.py'.
 IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".webp")
-
-SUFFIX_FORMATS: dict[str, InputFormat | None] = {
-    ".pdf": InputFormat.PDF,
-    ".docx": InputFormat.DOCX,
-    ".pptx": InputFormat.PPTX,
-    ".html": InputFormat.HTML,
-    ".htm": InputFormat.HTML,
-    ".md": InputFormat.MD,
-    ".txt": None,
-    **dict.fromkeys(IMAGE_SUFFIXES, InputFormat.IMAGE),
-}
 
 # NOTE:
 # We add these leading prefixes to each genuine file depending

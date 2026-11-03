@@ -62,9 +62,9 @@ from langfuse import get_client
 
 from src.clients.langfuse_client import traced_tool
 from src.schemas.clients import (
+    IMAGE_SUFFIXES,
     MIN_TEXT_LAYER_CHARS,
     SIGNATURES,
-    SUFFIX_FORMATS,
     DocumentExtraction,
     PageExtraction,
 )
@@ -72,6 +72,17 @@ from src.settings import settings
 from src.utils.patterns.as_singleton import as_singleton
 
 logger = logging.getLogger(__name__)
+
+SUFFIX_FORMATS: dict[str, InputFormat | None] = {
+    ".pdf": InputFormat.PDF,
+    ".docx": InputFormat.DOCX,
+    ".pptx": InputFormat.PPTX,
+    ".html": InputFormat.HTML,
+    ".htm": InputFormat.HTML,
+    ".md": InputFormat.MD,
+    ".txt": None,
+    **dict.fromkeys(IMAGE_SUFFIXES, InputFormat.IMAGE),
+}
 
 
 # region Docling Client Errors Handlers

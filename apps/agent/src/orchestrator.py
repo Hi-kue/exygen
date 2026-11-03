@@ -8,7 +8,7 @@ from src.agents import (
     StyleAnalysisAgent,
     ValidationAgent,
 )
-from src.contracts import (
+from src.schemas import (
     AssembledExam,
     DocumentPage,
     ExamGenerationRequest,

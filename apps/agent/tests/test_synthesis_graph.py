@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from openai import APIError
+from openrouter.errors import OpenRouterError
 
 from src import (
     AnchorQuestion,
@@ -9,14 +9,13 @@ from src import (
     CriticFeedback,
     ExamBlueprintWithSlots,
     MockLLMClient,
-    OpenRouterClient,
     build_synthesis_prompt,
+    get_chat_model,
     parse_critic_markdown,
     parse_synthesized_markdown,
     run_slot_synthesis,
     synthesize_exam_slots,
 )
-from src.settings import settings
 
 
 @pytest.fixture
@@ -203,7 +202,7 @@ def test_langgraph_single_attempt_accepted(
     q, evaluation = run_slot_synthesis(
         slot=sample_slot,
         anchor=sample_anchor,
-        llm_client=mock_client,
+        llm=mock_client,
     )
     assert q.slot_number == 2
     assert evaluation.accepted is True
@@ -272,7 +271,7 @@ Corrected parent index arithmetic verified. Question is clean and aligned with i
         slot=sample_slot,
         anchor=sample_anchor,
         max_attempts=3,
-        llm_client=mock_client,
+        llm=mock_client,
     )
 
     assert q.slot_number == 2
@@ -353,7 +352,7 @@ Complete sections and accurate complexity derivation.
         slot=sample_slot,
         anchor=sample_anchor,
         max_attempts=3,
-        llm_client=mock_client,
+        llm=mock_client,
     )
 
     assert evaluation.accepted is True
@@ -411,7 +410,7 @@ Flaw persists.
         slot=sample_slot,
         anchor=sample_anchor,
         max_attempts=3,
-        llm_client=mock_client,
+        llm=mock_client,
     )
 
     assert evaluation.accepted is False
@@ -483,7 +482,7 @@ def test_synthesize_exam_slots_batch_runner() -> None:
     questions, evaluations = synthesize_exam_slots(
         blueprint=blueprint,
         anchors=anchors,
-        llm_client=mock_client,
+        llm=mock_client,
     )
 
     assert len(questions) == 3
@@ -500,20 +499,18 @@ def test_live_openrouter_if_key_present(
     sample_slot: BlueprintSlot,
     sample_anchor: AnchorQuestion,
 ) -> None:
-    if settings.agent.openrouter_api_key is None:
-        pytest.skip(
-            "AGENT_OPENROUTER_API_KEY not set. Skipping live LLM integration test."
-        )
+    llm = get_chat_model()
+    if isinstance(llm, MockLLMClient):
+        pytest.skip("OpenRouter is not configured. Skipping live LLM integration test.")
 
-    client = OpenRouterClient()
     try:
         q, evaluation = run_slot_synthesis(
             slot=sample_slot,
             anchor=sample_anchor,
             max_attempts=2,
-            llm_client=client,
+            llm=llm,
         )
-    except APIError as exc:
+    except OpenRouterError as exc:
         pytest.skip(f"OpenRouter live call skipped due to provider/credit limit: {exc}")
 
     assert q.slot_number == sample_slot.slot_number

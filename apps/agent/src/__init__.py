@@ -1,4 +1,36 @@
-from src.contracts import (
+from src.agents.classifier.base import (
+    ClassifierAgent,
+    source_document_from_extraction,
+)
+from src.agents.critic.base import CriticAgent, parse_critic_markdown
+from src.agents.critic.prompt import build_critic_prompt
+from src.agents.graph import (
+    create_classifier_graph,
+    create_slot_synthesis_graph,
+    exygen,
+    run_classifier,
+    run_slot_synthesis,
+    synthesize_exam_slots,
+)
+from src.agents.llm_client import MockLLMClient, get_chat_model
+from src.agents.schemas import (
+    AnchorQuestion,
+    BlueprintSlot,
+    CriticEvaluation,
+    CriticFeedback,
+    ExamBlueprintWithSlots,
+    MarkdownParseError,
+    SlotSynthesisState,
+    SynthesizedQuestion,
+    extract_markdown_sections,
+)
+from src.agents.synthesizer.base import (
+    QuestionSynthesizerAgent,
+    parse_synthesized_markdown,
+)
+from src.agents.synthesizer.prompt import build_synthesis_prompt
+from src.orchestrator import ExamPipelineOrchestrator, default_synthetic_documents
+from src.schemas import (
     AssembledExam,
     DocumentPage,
     ExamBlueprint,
@@ -11,41 +43,12 @@ from src.contracts import (
     StyleProfile,
     ValidationReport,
 )
-from src.critic import CriticAgent, build_critic_prompt, parse_critic_markdown
-from src.llm_client import (
-    BaseLLMClient,
-    MockLLMClient,
-    OpenRouterClient,
-    get_llm_client,
-)
-from src.orchestrator import ExamPipelineOrchestrator, default_synthetic_documents
-from src.synthesis_contracts import (
-    AnchorQuestion,
-    BlueprintSlot,
-    CriticEvaluation,
-    CriticFeedback,
-    ExamBlueprintWithSlots,
-    MarkdownParseError,
-    SynthesizedQuestion,
-    extract_markdown_sections,
-)
-from src.synthesis_graph import (
-    SlotSynthesisState,
-    create_slot_synthesis_graph,
-    run_slot_synthesis,
-    synthesize_exam_slots,
-)
-from src.synthesizer import (
-    QuestionSynthesizerAgent,
-    build_synthesis_prompt,
-    parse_synthesized_markdown,
-)
 
 __all__ = [
     "AnchorQuestion",
     "AssembledExam",
-    "BaseLLMClient",
     "BlueprintSlot",
+    "ClassifierAgent",
     "CriticAgent",
     "CriticEvaluation",
     "CriticFeedback",
@@ -59,7 +62,6 @@ __all__ = [
     "GeneratedQuestion",
     "MarkdownParseError",
     "MockLLMClient",
-    "OpenRouterClient",
     "QuestionProvenance",
     "QuestionSynthesizerAgent",
     "SlotSynthesisState",
@@ -69,12 +71,16 @@ __all__ = [
     "ValidationReport",
     "build_critic_prompt",
     "build_synthesis_prompt",
+    "create_classifier_graph",
     "create_slot_synthesis_graph",
     "default_synthetic_documents",
     "extract_markdown_sections",
-    "get_llm_client",
+    "exygen",
+    "get_chat_model",
     "parse_critic_markdown",
     "parse_synthesized_markdown",
+    "run_classifier",
     "run_slot_synthesis",
+    "source_document_from_extraction",
     "synthesize_exam_slots",
 ]

@@ -34,8 +34,10 @@ Usage:
       'ClefNotConfiguredError' so the caller can use its offline fallback.
 
 Privacy:
-    The 'state' text is sent to Cloudflare. It is never written to the Langfuse
-    trace; only the question ids, the answers and the token usage are.
+    The 'state' text is sent to Cloudflare. This client never writes it to the
+    Langfuse trace; only the question ids, the answers and the token usage are. The
+    same question text does reach Langfuse through the LLM prompts and graph state
+    captured for a graph run (see 'src/agents/graph.py').
 
 Clef docs: https://developers.cloudflare.com/workers-ai/models/clef/
 """
