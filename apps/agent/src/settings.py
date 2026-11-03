@@ -22,14 +22,18 @@ DEFAULT_ENV_FILE = Path(__file__).resolve().parents[1] / ".env"
 AGENT_DEFAULT_LLM_PROVIDER = "openrouter"
 AGENT_DEFAULT_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 AGENT_DEFAULT_OPENROUTER_MODEL = "nvidia/nemotron-3-ultra-550b-a55b:free"
+AGENT_DEFAULT_OPENROUTER_VISION_MODEL = "nvidia/nemotron-3.5-super-vl:free"
 AGENT_DEFAULT_TEMPERATURE = 0.7
-AGENT_DEFAULT_TIMEOUT_SECONDS = 60
+AGENT_DEFAULT_TIMEOUT_SECONDS = 300
 AGENT_DEFAULT_CLEF_BASE_URL = "https://api.cloudflare.com/client/v4/accounts"
 AGENT_DEFAULT_CLEF_MODEL = "clef"
 AGENT_DEFAULT_CLEF_TIMEOUT_SECONDS = 30
 AGENT_DEFAULT_CLEF_MAX_RETRIES = 2
 AGENT_DEFAULT_CLEF_MIN_QUESTIONS = 1
 AGENT_DEFAULT_CLEF_MAX_QUESTIONS = 64
+AGENT_DEFAULT_CLASSIFIER_READING_MODE = "auto"
+AGENT_DEFAULT_CLASSIFIER_WHOLE_DOCUMENT_MAX_CHARS = 200_000
+AGENT_DEFAULT_VISION_TIMEOUT_SECONDS = 120
 
 # Langfuse Defaults
 LANGFUSE_DEFAULT_BASE_URL = "https://us.cloud.langfuse.com"
@@ -39,6 +43,8 @@ DOCLING_DEFAULT_MAX_FILE_SIZE_MB = 25
 DOCLING_DEFAULT_MAX_PAGES = 100
 DOCLING_DEFAULT_OCR_LANGUAGES = ["en"]
 DOCLING_DEFAULT_DOCUMENT_TIMEOUT_SECONDS = 300
+DOCLING_DEFAULT_FIGURE_IMAGES_SCALE = 2.0
+DOCLING_DEFAULT_FIGURE_MIN_PIXELS = 32
 
 # RAG Defaults
 RAG_DEFAULT_CHROMA_PERSIST_DIR = "./chroma_db"
@@ -189,6 +195,34 @@ class AgentSettings(BaseSettings):
             "rejects more than 64, so lower it to shrink batches, never raise it."
         ),
     )
+    classifier_reading_mode: Literal["auto", "whole_document", "per_page"] = Field(
+        default=AGENT_DEFAULT_CLASSIFIER_READING_MODE,
+        description=(
+            "How the Classifier reads a document. 'whole_document' keeps questions "
+            "that cross a page break together, 'per_page' sends one page at a time, "
+            "and 'auto' chooses from the structure of the exam."
+        ),
+    )
+    classifier_whole_document_max_chars: int = Field(
+        default=AGENT_DEFAULT_CLASSIFIER_WHOLE_DOCUMENT_MAX_CHARS,
+        gt=0,
+        description=(
+            "Longest document that 'auto' reads in one request. Longer ones are read "
+            "page by page, so a question that crosses a page break may be split."
+        ),
+    )
+    vision_model: str | None = Field(
+        default=AGENT_DEFAULT_OPENROUTER_VISION_MODEL,
+        description=(
+            "OpenRouter model that describes figures and reads pages with almost no "
+            "text. It must accept images, which the main model may not."
+        ),
+    )
+    vision_timeout_seconds: int = Field(
+        default=AGENT_DEFAULT_VISION_TIMEOUT_SECONDS,
+        gt=0,
+        description="Time allowed for one vision request before it counts as failed.",
+    )
 
     @model_validator(mode="after")
     def _validate_clef_question_bounds(self) -> AgentSettings:
@@ -280,6 +314,23 @@ class DoclingSettings(BaseSettings):
             "Convert formulas to LaTeX with Docling's CodeFormula model. Downloads "
             "an extra model on first use."
         ),
+    )
+    capture_figures: bool = Field(
+        default=True,
+        description=(
+            "Keep pictures such as diagrams, and pages with almost no text, so they "
+            "can be described instead of being lost."
+        ),
+    )
+    figure_images_scale: float = Field(
+        default=DOCLING_DEFAULT_FIGURE_IMAGES_SCALE,
+        gt=0,
+        description="Resolution of captured pictures, relative to 72 DPI.",
+    )
+    figure_min_pixels: int = Field(
+        default=DOCLING_DEFAULT_FIGURE_MIN_PIXELS,
+        ge=1,
+        description="Pictures narrower or shorter than this are ignored as decoration.",
     )
 
     model_config: ClassVar[SettingsConfigDict] = SettingsConfigDict(

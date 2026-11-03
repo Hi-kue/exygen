@@ -164,7 +164,7 @@ Question is solvable and unambiguous. Trace verified: 2 swaps, final index 1. Ma
     assert eval_res.slot_number == 2
     assert eval_res.accepted is True
     assert eval_res.correctness_status == "verified"
-    assert eval_res.code_sandbox_passed is True
+    assert eval_res.code_sandbox_passed is None
     assert eval_res.style_alignment_score == pytest.approx(0.94)
     assert len(eval_res.issues) == 0
     assert "Trace verified" in eval_res.verifier_notes
@@ -198,7 +198,14 @@ def test_langgraph_single_attempt_accepted(
     sample_slot: BlueprintSlot,
     sample_anchor: AnchorQuestion,
 ) -> None:
-    mock_client = MockLLMClient()
+    mock_client = MockLLMClient(
+        response_map={
+            "CANDIDATE QUESTION TO EVALUATE": (
+                "## ACCEPTED\ntrue\n\n## CORRECTNESS_STATUS\nverified\n\n"
+                "## STYLE_ALIGNMENT_SCORE\n0.92\n\n## VERIFIER_NOTES\nChecked.\n"
+            )
+        }
+    )
     q, evaluation = run_slot_synthesis(
         slot=sample_slot,
         anchor=sample_anchor,
@@ -208,7 +215,7 @@ def test_langgraph_single_attempt_accepted(
     assert evaluation.accepted is True
     assert evaluation.correctness_status == "verified"
     assert evaluation.code_sandbox_passed is None
-    assert evaluation.style_alignment_score >= 0.90
+    assert evaluation.style_alignment_score == pytest.approx(0.92)
     assert len(mock_client.call_history) == 2  # 1 synthesizer call + 1 critic call
 
 
@@ -488,11 +495,11 @@ def test_synthesize_exam_slots_batch_runner() -> None:
     assert len(questions) == 3
     assert len(evaluations) == 3
     assert [q.slot_number for q in questions] == [1, 2, 3]
-    assert all(e.accepted for e in evaluations)
+    assert all(e.correctness_status == "unverified" for e in evaluations)
+    assert not any(e.accepted for e in evaluations)
     assert questions[0].mcq_options is not None
     assert questions[2].mcq_options is None
-    assert evaluations[0].code_sandbox_passed is None
-    assert evaluations[2].code_sandbox_passed is True
+    assert all(e.code_sandbox_passed is None for e in evaluations)
 
 
 def test_live_openrouter_if_key_present(

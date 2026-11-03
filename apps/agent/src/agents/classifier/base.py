@@ -2,9 +2,10 @@
 
 This file turns the text of a source document into tagged anchor questions, in two steps:
 
-    structure: The LLM copies out the questions on each page. Anything it returns is
-        checked against the page, so a question, marks value or keyword that is not in
-        the document is discarded rather than stored as evidence.
+    structure: The LLM copies out the questions, reading the whole document or one page
+        at a time. Anything it returns is checked against the source, so a question, marks
+        value or keyword that is not in the document is discarded rather than stored as
+        evidence, and the page a question cites comes from where its text was found.
     tag: Clef tags each question with its format, topic, archetype and difficulty.
 
 Without Clef, keyword rules tag the format and topic, and the result is labeled as such.
@@ -42,6 +43,7 @@ from src.agents.llm_client import ainvoke_llm_agent, create_llm_agent, get_chat_
 from src.agents.schemas import (
     AnchorQuestion,
     MarkdownParseError,
+    ReadingMode,
     StructuredQuestion,
     extract_markdown_sections,
 )
@@ -54,8 +56,37 @@ from src.schemas.clients import (
     DocumentExtraction,
     ScoreQuestion,
 )
+from src.settings import settings
 
 MAX_STRUCTURE_ATTEMPTS = 3
+
+QUESTION_START_PATTERN = re.compile(
+    r"^\W*(?:question|problem|q)\s*\d+\b", re.IGNORECASE
+)
+PAGE_MARKER_PATTERN = re.compile(r"^\[Page \d+\][ \t]*$\n?", re.MULTILINE)
+FIGURE_ID_PATTERN = re.compile(r"\[Figure ([\w-]+) on page")
+
+# NOTE:
+# How far apart, ignoring whitespace, two neighbouring words of a question may be in the
+# source. A question copied across a page break skips the footer between its pages, but a
+# reworded or invented question cannot line up word by word within this distance.
+MAX_SOURCE_GAP_CHARS = 40
+
+# NOTE:
+# A faithful copy can still differ from the source in ways that change no content: a model
+# may straighten quotes, or add a Markdown heading, bold, code span or bullet around text.
+SOURCE_NORMALIZATION = str.maketrans(
+    {
+        chr(0x2018): "'",
+        chr(0x2019): "'",
+        chr(0x201C): '"',
+        chr(0x201D): '"',
+        "\\": None,
+        "#": None,
+        "*": None,
+        "`": None,
+    }
+)
 
 STRUCTURE_KNOWN_HEADERS = {"RAW_TEXT", "MARKS", "KEYWORDS"}
 DIFFICULTIES = ("easy", "medium", "hard")
@@ -151,8 +182,87 @@ def source_document_from_extraction(
     )
 
 
+def infer_reading_mode(document: SourceDocument) -> ReadingMode:
+    """Choose how to read a document from the structure of its pages.
+
+    One request per page is enough only when every page, from the first question on,
+    starts a new question. Otherwise a question may cross a page break, so the document
+    is read whole. A document too long for one request is read page by page.
+
+    Args:
+        document: The document to read.
+
+    Returns:
+        The reading mode.
+    """
+    total_chars = sum(len(page.content) for page in document.pages)
+    if (
+        len(document.pages) == 1
+        or total_chars > settings.agent.classifier_whole_document_max_chars
+    ):
+        return "per_page"
+
+    starts_question = [
+        bool(QUESTION_START_PATTERN.match(page.content.lstrip()))
+        for page in document.pages
+    ]
+    if True not in starts_question:
+        return "whole_document"
+    first_question = starts_question.index(True)
+    return "per_page" if all(starts_question[first_question:]) else "whole_document"
+
+
 def _normalize(text: str) -> str:
     return " ".join(text.split())
+
+
+def _source_words(text: str) -> list[str]:
+    """Split text into words, ignoring differences a faithful copy can introduce."""
+    return [
+        word for word in text.translate(SOURCE_NORMALIZATION).split() if word.strip("-")
+    ]
+
+
+def _find_source_page(raw_text: str, pages: list[DocumentPage]) -> DocumentPage | None:
+    """Find the page a question starts on, if its text really is in those pages.
+
+    The text is compared without whitespace, because extraction can run words together
+    ('anexample') and a model copying them may separate them. Each word must follow the
+    last one within 'MAX_SOURCE_GAP_CHARS', which allows for a footer between pages.
+
+    Args:
+        raw_text: The question text returned by the LLM.
+        pages: The pages it was read from.
+
+    Returns:
+        The page holding the start of the question, or None if the text is not there.
+    """
+    words = _source_words(raw_text)
+    if not words:
+        return None
+
+    source = ""
+    page_starts: list[tuple[int, DocumentPage]] = []
+    for page in pages:
+        page_starts.append((len(source), page))
+        source += "".join(_source_words(page.content))
+
+    start = source.find(words[0])
+    while start != -1:
+        position = start + len(words[0])
+        for word in words[1:]:
+            found = source.find(
+                word, position, position + MAX_SOURCE_GAP_CHARS + len(word)
+            )
+            if found == -1:
+                break
+            position = found + len(word)
+        else:
+            return next(
+                page for offset, page in reversed(page_starts) if offset <= start
+            )
+        start = source.find(words[0], start + 1)
+    return None
 
 
 def _parse_marks(raw: str) -> int | None:
@@ -255,9 +365,23 @@ class ClassifierAgent:
 
     _identifier = AgentIdentifier.CLASSIFIER
 
-    def __init__(self, llm: BaseChatModel | None = None, clef: Any = None) -> None:
+    def __init__(
+        self,
+        llm: BaseChatModel | None = None,
+        clef: Any = None,
+        reading_mode: ReadingMode | None = None,
+    ) -> None:
+        """Set up the agent.
+
+        Args:
+            llm: The chat model. Defaults to 'get_chat_model'.
+            clef: The Clef client. Defaults to the process-wide one.
+            reading_mode: How to read documents, overriding the
+                'classifier_reading_mode' setting.
+        """
         self.llm = llm or get_chat_model()
         self.clef = clef if clef is not None else clef_client
+        self.reading_mode = reading_mode
         self.agent = create_llm_agent(
             name="classifier",
             system_prompt=AGENT_CLASSIFIER_PROMPT,
@@ -267,9 +391,10 @@ class ClassifierAgent:
     async def structure(
         self, document: SourceDocument
     ) -> tuple[list[StructuredQuestion], list[str]]:
-        """Read the questions out of an exam, page by page.
+        """Read the questions out of an exam, whole or one page at a time.
 
-        A question that spans two pages comes back as two partial questions.
+        Read one page at a time, a question that crosses a page break comes back as
+        two partial questions, so 'auto' only chooses that when no question does.
 
         Args:
             document: The document to read.
@@ -283,13 +408,19 @@ class ClassifierAgent:
         ) as span:
             questions: list[StructuredQuestion] = []
             warnings: list[str] = []
+            mode = self._resolve_reading_mode(document)
             if document.document_type == "exam":
-                for page in document.pages:
-                    page_questions, page_warnings = await self._read_page(
-                        document, page
+                sections = (
+                    [document.pages]
+                    if mode == "whole_document"
+                    else [[page] for page in document.pages]
+                )
+                for pages in sections:
+                    found, section_warnings = await self._read_section(
+                        document, pages, mode, questions
                     )
-                    questions.extend(page_questions)
-                    warnings.extend(page_warnings)
+                    questions.extend(found)
+                    warnings.extend(section_warnings)
             else:
                 warnings.append(
                     f"{document.filename} is a {document.document_type}, "
@@ -297,7 +428,11 @@ class ClassifierAgent:
                 )
             if span is not None:
                 span.update(
-                    output={"questions": len(questions), "warnings": len(warnings)}
+                    output={
+                        "reading_mode": mode,
+                        "questions": len(questions),
+                        "warnings": len(warnings),
+                    }
                 )
             return questions, warnings
 
@@ -344,67 +479,118 @@ class ClassifierAgent:
                 )
             return anchors, warnings
 
-    async def _read_page(
-        self, document: SourceDocument, page: DocumentPage
+    def _resolve_reading_mode(self, document: SourceDocument) -> ReadingMode:
+        mode = self.reading_mode or settings.agent.classifier_reading_mode
+        return infer_reading_mode(document) if mode == "auto" else mode
+
+    async def _read_section(
+        self,
+        document: SourceDocument,
+        pages: list[DocumentPage],
+        mode: ReadingMode,
+        earlier: list[StructuredQuestion],
     ) -> tuple[list[StructuredQuestion], list[str]]:
+        """Read one section, which is a single page or the whole document.
+
+        Args:
+            document: The document being read.
+            pages: The pages in this section.
+            mode: The reading mode.
+            earlier: The questions already found, so ids stay unique on each page.
+
+        Returns:
+            The questions in this section, and warnings about anything discarded.
+        """
+        if mode == "whole_document":
+            label = "Document"
+            header = f"PAGES: {pages[0].page_number} to {pages[-1].page_number}"
+            text = "\n\n".join(
+                f"[Page {page.page_number}]\n\n{page.content}" for page in pages
+            )
+        else:
+            label = f"Page {pages[0].page_number}"
+            header = f"PAGE NUMBER: {pages[0].page_number}"
+            text = pages[0].content
+
         format_error: str | None = None
         for _ in range(MAX_STRUCTURE_ATTEMPTS):
             response = await ainvoke_llm_agent(
                 self.agent,
-                build_structure_prompt(page.page_number, page.content, format_error),
+                build_structure_prompt(header, text, format_error),
             )
             try:
                 parsed = parse_structure_markdown(response)
             except MarkdownParseError as exc:
                 format_error = str(exc)
                 continue
-            return self._verify_against_page(document, page, parsed)
+            return self._verify_against_source(document, pages, label, parsed, earlier)
         warning = (
-            f"Page {page.page_number}: the response could not be read after "
+            f"{label}: the response could not be read after "
             f"{MAX_STRUCTURE_ATTEMPTS} attempts, so no questions were taken from it."
         )
         return [], [warning]
 
     @staticmethod
-    def _verify_against_page(
+    def _verify_against_source(
         document: SourceDocument,
-        page: DocumentPage,
+        pages: list[DocumentPage],
+        label: str,
         parsed: list[_ParsedQuestion],
+        earlier: list[StructuredQuestion],
     ) -> tuple[list[StructuredQuestion], list[str]]:
-        page_text = _normalize(page.content)
+        """Keep only what is really in the source, and cite the page it starts on.
+
+        The page comes from where the text was found, not from anything the LLM said.
+
+        Args:
+            document: The document being read.
+            pages: The pages the LLM was given.
+            label: How to refer to these pages in a warning.
+            parsed: The questions the LLM listed.
+            earlier: The questions already found.
+
+        Returns:
+            The verified questions, and warnings about anything discarded.
+        """
         questions: list[StructuredQuestion] = []
         warnings: list[str] = []
         for candidate in parsed:
-            if _normalize(candidate.raw_text) not in page_text:
+            raw_text = PAGE_MARKER_PATTERN.sub("", candidate.raw_text).strip()
+            page = _find_source_page(raw_text, pages)
+            if page is None:
                 warnings.append(
-                    f"Page {page.page_number}: dropped a question whose text is not "
-                    "on the page."
+                    f"{label}: dropped a question whose text is not in the source."
                 )
                 continue
 
             marks = candidate.marks
-            if marks is not None and not re.search(rf"\b{marks}\b", page_text):
+            if marks is not None and not re.search(rf"\b{marks}\b", page.content):
                 warnings.append(
-                    f"Page {page.page_number}: ignored a marks value of {marks}, "
-                    "which is not on the page."
+                    f"{label}: ignored a marks value of {marks}, which is not on "
+                    f"page {page.page_number}."
                 )
                 marks = None
 
-            question_text = _normalize(candidate.raw_text).lower()
+            on_this_page = sum(
+                question.page_number == page.page_number
+                for question in [*earlier, *questions]
+            )
+            question_text = _normalize(raw_text).lower()
             questions.append(
                 StructuredQuestion(
                     question_id=(
-                        f"{document.id}-p{page.page_number}-q{len(questions) + 1}"
+                        f"{document.id}-p{page.page_number}-q{on_this_page + 1}"
                     ),
                     source_document=document.filename,
                     page_number=page.page_number,
-                    raw_text=candidate.raw_text,
+                    raw_text=raw_text,
                     marks=marks,
                     keywords=[
                         keyword
                         for keyword in candidate.keywords
                         if _normalize(keyword).lower() in question_text
                     ],
+                    figure_ids=FIGURE_ID_PATTERN.findall(raw_text),
                 )
             )
         return questions, warnings

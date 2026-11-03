@@ -10,6 +10,7 @@ from langchain_core.messages import AIMessage
 from pydantic import BaseModel, SecretStr
 
 from src.clients.langfuse_client import _mask
+from src.schemas.clients import MAX_FIELD_CHARS, AgentIdentifier
 from src.settings import settings
 
 langfuse_module = sys.modules["src.clients.langfuse_client"]
@@ -86,10 +87,16 @@ def test_mask_leaves_plain_values_unchanged(value: object) -> None:
 
 
 def test_mask_truncates_oversized_text_inside_an_object() -> None:
-    masked = _mask(data=Question(raw_text="x" * 25_000))
+    masked = _mask(data=Question(raw_text="x" * (MAX_FIELD_CHARS + 5000)))
 
-    assert len(masked["raw_text"]) < 25_000
+    assert len(masked["raw_text"]) < MAX_FIELD_CHARS + 5000
     assert "truncated 5000 chars" in masked["raw_text"]
+
+
+def test_mask_keeps_the_full_prompt_of_the_longest_document_read_whole() -> None:
+    prompt = "x" * settings.agent.classifier_whole_document_max_chars
+
+    assert _mask(data=prompt) == prompt
 
 
 def test_client_turns_masking_on_when_tracing_is_enabled(
@@ -111,6 +118,10 @@ def test_client_turns_masking_on_when_tracing_is_enabled(
 
     assert client.is_initialized
     assert created[0]["mask"] is _mask
+
+
+def test_agents_can_be_attributed_to_the_planner() -> None:
+    assert AgentIdentifier("planner") is AgentIdentifier.PLANNER
 
 
 def test_mask_does_not_change_the_original_value() -> None:

@@ -1,7 +1,7 @@
 ---
 title: Architecture
 date: Saturday 24th October 2026 18:40:00
-modified_date: Sunday 1st November 2026 16:20:00
+modified_date: Tuesday 3rd November 2026 12:40:00
 summary: The Exygen agent pipeline, monorepo layout, and planned production deployment on Cloudflare Workers and VMs managed by Xen Orchestra.
 tags:
     - architecture
@@ -17,7 +17,10 @@ This page summarizes the blueprint in `.agents/index.md`, which remains the sour
 
 ## Pipeline
 
-The blueprint runs agents in sequence, with bounded retries, structured error reports, and saved intermediate outputs. Today, [`ExamPipelineOrchestrator`](agent/reference.md#orchestrator) runs each role once with deterministic agents, with no retries or saved outputs. The only retry loop is in [Stage 3](agent/pipeline.md#stage-3-synthesis-loop) of the LLM-backed pipeline, which is not connected to it yet.
+The blueprint runs agents in sequence, with bounded retries, structured error reports, and saved intermediate outputs. Two implementations exist today, and they share no code path:
+
+- The [Exygen Graph](agent/pipeline.md#the-exygen-graph) is the LLM-backed pipeline. It covers extraction, planning, generation, and validation, with bounded retries for each question, and `python -m src run` runs it. It does not build a style profile, assemble an exam, or save intermediate outputs yet.
+- [`ExamPipelineOrchestrator`](agent/reference.md#orchestrator) runs each role below once with deterministic agents, with no retries or saved outputs. The offline demo uses it.
 
 | Stage | Agent | Output |
 | --- | --- | --- |
@@ -135,7 +138,7 @@ The plan starts from the repository as it is today. These gaps must close before
 | Web failure handling | `fetchWithFallback` and `generatePracticeExam` in `apps/web/src/lib/api.ts` return hard-coded fixtures on any API failure. An outage or timeout would show a fixture exam as if it had been generated | Visible errors in production, with fixtures kept for the offline demo |
 | Web hosting | No Worker configuration. `apps/docs/wrangler.toml` configures the docs site only | Worker configuration for `apps/web` |
 | Database | None. `make migrate` does nothing | PostgreSQL, a schema, and migrations |
-| Sandbox | None. No code executes. The Critic reads `CODE_SANDBOX_PASSED` from the LLM response, and the mock LLM returns `true` for code questions | A sandbox worker service, with the result taken from real execution |
+| Sandbox | None. No code executes, `code_sandbox_passed` is always `None`, and no code question can reach `verified` | A sandbox service, with the result taken from real execution. See [Sandboxes](#sandboxes-horizontally-scaled-vms) |
 | CI/CD | No `.github/workflows` directory | Build and deploy pipelines |
 
 #### Hosted Database Dependencies
@@ -175,7 +178,7 @@ These limits come from the [connection limits](https://developers.cloudflare.com
 
 | Limit | Value | Effect on Exygen |
 | --- | --- | --- |
-| Proxy read timeout | 125 seconds, returns HTTP 524. Only Enterprise zones can change it | A long `POST /api/exams` can fail. `DOCLING_DOCUMENT_TIMEOUT_SECONDS` defaults to 300, which is longer than this limit |
+| Proxy read timeout | 125 seconds, returns HTTP 524. Only Enterprise zones can change it | A long `POST /api/exams` can fail. `DOCLING_DOCUMENT_TIMEOUT_SECONDS` and `AGENT_TIMEOUT_SECONDS` both default to 300, which is longer than this limit. One [observed run](evaluation.md#observed-runs) took about 6 minutes to reach the planner on free models |
 | Maximum upload size | 100 MB on Free and Pro, 200 MB on Business | `DOCLING_MAX_FILE_SIZE_MB` defaults to 25, which fits |
 
 Treat the read timeout as applying to Tunnel traffic, and confirm this with a test on the chosen plan.
@@ -220,7 +223,7 @@ Horizontal API replication and API load balancing can be added later if capacity
 
 | Service | Purpose | Settings |
 | --- | --- | --- |
-| OpenRouter | LLM calls for the Synthesizer and Critic | `AGENT_OPENROUTER_*` |
+| OpenRouter | LLM calls for the Classifier, Synthesizer, and Critic, and vision calls for figures | `AGENT_OPENROUTER_*`, `AGENT_VISION_*` |
 | Cloudflare Workers AI | Clef classification | `CF_*`, `AGENT_CLEF_*` |
 | Langfuse | Agent traces | `LANGFUSE_*` |
 
@@ -266,6 +269,9 @@ The first data to move is what `InMemoryStore` holds today: documents, extracted
 
 ### Sandboxes: Horizontally Scaled VMs
 
+!!! warning "This section is being replaced"
+    Code verification is now planned through [Daytona](https://www.daytona.io/) on the team's own servers, as a tool or node in the agent graph. This is deferred and nothing is built yet. The worker VMs and HAProxy described here and in [Sandbox Load Balancing](#sandbox-load-balancing-haproxy) have not been rewritten for that plan, so check with the team before building from them.
+
 | Resource | Requirement |
 | --- | --- |
 | VM naming | `sandbox-01`, `sandbox-02`, and so on |
@@ -293,7 +299,7 @@ Requirements:
 
 #### Workload Limits
 
-A VM with 1 vCPU and 2 GiB RAM suits short, single-purpose runs. The intended workload is running the test cases of generated `code_writing` questions (`code_test_cases` in `synthesis_contracts.py`). Supported languages are **Open**.
+A VM with 1 vCPU and 2 GiB RAM suits short, single-purpose runs. The intended workload is running the test cases of generated `code_writing` questions (`code_test_cases` in `agents/schemas.py`). Supported languages are **Open**.
 
 It does not suit long-running processes, network services, large builds, GPU work, or jobs that need network access or large datasets.
 
@@ -326,7 +332,7 @@ With one job per VM, N sandbox VMs run at most N jobs at once.
 
 #### Using the Result
 
-The Critic must take `code_sandbox_passed` from real execution before Exygen reports code as checked. If the sandbox is unavailable, times out, or returns an infrastructure error, the result must stay `None` (not run). It must never become `true`.
+The Critic must take `code_sandbox_passed` from real execution before Exygen reports code as checked. If the sandbox is unavailable, times out, or returns an infrastructure error, the result must stay `None` (not run). It must never become `true`. Today it is always `None`, because the sandbox does not exist.
 
 ### Sandbox Load Balancing: HAProxy
 
@@ -563,7 +569,7 @@ Rollback at each phase is to keep or restore the previous state: revert the Work
 
 - **Operational load**: self-hosting makes the team responsible for hosts, patching, backups, and recovery, which a managed provider would otherwise handle.
 - **Project scope**: the blueprint's `.agents/index.md` rule 10 limits infrastructure to what the end-to-end workflow needs, and its MVP stores demo metadata in local files or SQLite. This topology goes beyond the MVP, so the local demo must not depend on it.
-- **False verification**: until real execution exists, `code_sandbox_passed` reflects an LLM statement, not a test run.
+- **False verification**: until real execution exists, `code_sandbox_passed` stays `None` and code questions stay `unverified`. A non-code question marked `verified` has been approved only by the Critic LLM. The deterministic demo still prints a hard-coded `verified` result. See [Orchestrator](agent/reference.md#orchestrator).
 - **Sandbox escape**: running untrusted code carries inherent risk. Isolation must be tested, not assumed.
 
 ## Related Pages

@@ -22,6 +22,10 @@ from src.agents.schemas import (
 from src.clients.langfuse_client import traced_agent
 from src.schemas.clients import AgentIdentifier
 
+# NOTE:
+# 'CODE_SANDBOX_PASSED' is listed only so that a reply containing it does not run into
+# the section before it. Its value is ignored: only a real sandbox run can set that
+# result, and the LLM has no way to run code.
 CRITIC_KNOWN_HEADERS = {
     "ACCEPTED",
     "CORRECTNESS_STATUS",
@@ -52,39 +56,95 @@ NEGATIVE_TOKENS = {
     "reject",
     "flagged",
 }
+NEGATION_TOKENS = {
+    "not",
+    "never",
+    "cannot",
+    "can't",
+    "cant",
+    "isn't",
+    "isnt",
+    "wasn't",
+    "wasnt",
+    "doesn't",
+    "doesnt",
+    "unverified",
+    "unaccepted",
+}
 NA_TOKENS = {"n/a", "na", "none", "null", "not_applicable", "not applicable", ""}
+CODE_FORMATS = {"code_writing"}
+NOT_EXECUTED_NOTE = "Reviewed by the LLM, not executed, so it is not verified."
 
 
 def _parse_flexible_bool(raw: str) -> bool | None:
-    """Flexibly parses boolean values from LLM Markdown text (e.g. '**true**', 'Yes, accepted', 'N/A')."""
+    """Reads a verdict from LLM text such as '**true**' or 'Yes, accepted', failing closed.
+
+    A negation or any negative word makes the verdict false, so 'not accepted' and
+    'true but flagged' are never read as accepted. It is true only when affirmative
+    words appear and nothing argues against them.
+
+    Returns:
+        The verdict, or None when the text states none.
+    """
     cleaned = re.sub(r"[*_`\[\]\(\)]", "", raw).strip().lower()
     if cleaned in NA_TOKENS:
         return None
-    if cleaned in AFFIRMATIVE_TOKENS:
-        return True
-    if cleaned in NEGATIVE_TOKENS:
+
+    words = re.findall(r"[a-z0-9/']+", cleaned)
+    if any(word in NEGATION_TOKENS or word in NEGATIVE_TOKENS for word in words):
         return False
-
-    # Inspect the first token (e.g., "true - trace verified" or "no, the index is wrong")
-    first_token_match = re.match(r"^([a-z0-9/]+)", cleaned)
-    if first_token_match:
-        token = first_token_match.group(1)
-        if token in NA_TOKENS:
-            return None
-        if token in AFFIRMATIVE_TOKENS:
-            return True
-        if token in NEGATIVE_TOKENS:
-            return False
-
-    # Fallback: check word boundaries anywhere in a short single-line verdict
-    words = re.findall(r"\b[a-z0-9/]+\b", cleaned)
-    for w in words:
-        if w in AFFIRMATIVE_TOKENS:
-            return True
-        if w in NEGATIVE_TOKENS:
-            return False
-
+    if any(word in AFFIRMATIVE_TOKENS for word in words):
+        return True
     return None
+
+
+def _parse_style_score(raw: str) -> float | None:
+    """Reads a style score from 0 to 1, as a number, a percentage or a fraction.
+
+    Returns:
+        The score, or None when the text does not clearly state one in that range.
+    """
+    cleaned = re.sub(r"[*_`\s]", "", raw)
+    number = r"\d+(?:\.\d+)?"
+    score: float | None = None
+    if re.fullmatch(number, cleaned):
+        score = float(cleaned)
+    elif match := re.fullmatch(rf"({number})%", cleaned):
+        score = float(match.group(1)) / 100
+    elif match := re.fullmatch(rf"({number})/({number})", cleaned):
+        denominator = float(match.group(2))
+        score = float(match.group(1)) / denominator if denominator else None
+    if score is None or not 0.0 <= score <= 1.0:
+        return None
+    return score
+
+
+def _reconcile_verdict(
+    accepted: bool, status_raw: str, slot: BlueprintSlot
+) -> tuple[bool, CorrectnessStatus, bool]:
+    """Applies the rule that a question is either verified and accepted, or it is not.
+
+    Args:
+        accepted: The verdict from '## ACCEPTED'.
+        status_raw: The text of '## CORRECTNESS_STATUS'.
+        slot: The slot the question was written for.
+
+    Returns:
+        The final 'accepted' value and status, and whether a code question was held
+        back because it has not been executed.
+    """
+    words = re.sub(r"[*_`]", "", status_raw).lower().split()
+    if "unverified" in words:
+        return False, "unverified", False
+    if "flagged" in words:
+        return False, "flagged", False
+    if not accepted:
+        return False, "flagged", False
+    if "verified" not in words:
+        return False, "unverified", False
+    if slot.format in CODE_FORMATS:
+        return False, "unverified", True
+    return True, "verified", False
 
 
 def parse_critic_markdown(text: str, slot: BlueprintSlot) -> CriticEvaluation:
@@ -116,32 +176,13 @@ def parse_critic_markdown(text: str, slot: BlueprintSlot) -> CriticEvaluation:
             f"Could not parse boolean verdict from ## ACCEPTED: '{accepted_raw}'.",
             missing_sections=["## ACCEPTED"],
         )
-    accepted = accepted_parsed
-
-    # Parse CORRECTNESS_STATUS
-    status_raw = (
-        re.sub(r"[*_`]", "", sections.get("CORRECTNESS_STATUS", "")).strip().lower()
+    accepted, status, held_back = _reconcile_verdict(
+        accepted_parsed, sections.get("CORRECTNESS_STATUS", ""), slot
     )
-    status: CorrectnessStatus = "verified" if accepted else "flagged"
-    for candidate_status in ("verified", "flagged", "unverified"):
-        if candidate_status in status_raw.split():
-            status = candidate_status  # type: ignore[assignment]
-            break
+    if held_back:
+        notes = f"{NOT_EXECUTED_NOTE} {notes}"
 
-    # Parse CODE_SANDBOX_PASSED (None when N/A or omitted)
-    sandbox_raw = sections.get("CODE_SANDBOX_PASSED", "").strip()
-    sandbox_passed = _parse_flexible_bool(sandbox_raw)
-
-    # Parse STYLE_ALIGNMENT_SCORE
-    score_raw = sections.get("STYLE_ALIGNMENT_SCORE", "").strip()
-    score = 0.85 if accepted else 0.45
-    score_match = re.search(r"(\d+(?:\.\d+)?)", score_raw)
-    if score_match:
-        try:
-            parsed = float(score_match.group(1))
-            score = max(0.0, min(1.0, parsed))
-        except ValueError:
-            pass
+    score = _parse_style_score(sections.get("STYLE_ALIGNMENT_SCORE", ""))
 
     # Parse ISSUES
     issues_raw = sections.get("ISSUES", "").strip()
@@ -167,7 +208,7 @@ def parse_critic_markdown(text: str, slot: BlueprintSlot) -> CriticEvaluation:
         slot_number=slot.slot_number,
         accepted=accepted,
         correctness_status=status,
-        code_sandbox_passed=sandbox_passed,
+        code_sandbox_passed=None,
         style_alignment_score=score,
         issues=issues,
         verifier_notes=notes,

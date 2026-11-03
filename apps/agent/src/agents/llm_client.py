@@ -25,11 +25,16 @@ OPENROUTER_REASONING = {"effort": "high"}
 
 
 def _mock_structure_response(prompt: str) -> str:
-    """Copy the 'Q<number>' blocks of a page, so an offline run reads real text."""
-    page = re.search(r'### PAGE TEXT:\n"""\n(.*)\n"""', prompt, re.DOTALL)
-    page_text = page.group(1) if page else ""
+    """Copy the numbered questions out of the text, so an offline run reads real text."""
+    page = re.search(r"<source_text>\n(.*)\n</source_text>", prompt, re.DOTALL)
+    page_text = re.sub(
+        r"^\[Page \d+\]$", "", page.group(1) if page else "", flags=re.MULTILINE
+    )
     starts = [
-        match.start() for match in re.finditer(r"^Q\d+\b", page_text, re.MULTILINE)
+        match.start()
+        for match in re.finditer(
+            r"^(?:#+\s*)?(?:Q|Question\s*)\d+\b", page_text, re.MULTILINE
+        )
     ]
     if not starts:
         return NO_QUESTIONS_MARKER
@@ -135,21 +140,17 @@ class MockLLMClient(BaseChatModel):
             or "CRITIC EVALUATION" in prompt
             or "CANDIDATE QUESTION TO EVALUATE" in prompt
         ):
-            is_code = "Format: code_writing" in prompt
-            sandbox_str = "true" if is_code else "N/A"
             return (
                 "## ACCEPTED\n"
-                "true\n\n"
+                "false\n\n"
                 "## CORRECTNESS_STATUS\n"
-                "verified\n\n"
-                "## CODE_SANDBOX_PASSED\n"
-                f"{sandbox_str}\n\n"
+                "unverified\n\n"
                 "## STYLE_ALIGNMENT_SCORE\n"
-                "0.92\n\n"
+                "None\n\n"
                 "## ISSUES\n"
                 "None\n\n"
                 "## VERIFIER_NOTES\n"
-                "Question is solvable and unambiguous. Trace is verified correct. Style matches exam standards.\n"
+                "Mock response: nothing was checked, so this question is unverified.\n"
             )
 
         if (
@@ -228,6 +229,38 @@ def get_chat_model(force_mock: bool = False, model: str | None = None) -> BaseCh
         # ChatOpenRouter takes milliseconds; the setting is in seconds.
         timeout=config.timeout_seconds * 1000,
         reasoning=OPENROUTER_REASONING,
+        app_url=OPENROUTER_APP_URL,
+        app_title=OPENROUTER_APP_TITLE,
+    )
+
+
+def get_vision_model() -> BaseChatModel | None:
+    """Build the chat model that reads images.
+
+    It is separate from 'get_chat_model' because the main model may only accept text.
+    Retries are left to the caller, which marks a figure as not described when they
+    run out, so one call fails quickly instead of retrying for minutes.
+
+    Returns:
+        A 'ChatOpenRouter', or None when OpenRouter is not configured or no vision
+        model is set. Figures are then marked as not described, so offline runs still
+        complete.
+    """
+    config = settings.agent
+    if (
+        config.llm_provider == "mock"
+        or config.openrouter_api_key is None
+        or not config.vision_model
+    ):
+        return None
+    return ChatOpenRouter(
+        model=config.vision_model,
+        api_key=config.openrouter_api_key,
+        base_url=config.openrouter_base_url,
+        temperature=0,
+        # ChatOpenRouter takes milliseconds; the setting is in seconds.
+        timeout=config.vision_timeout_seconds * 1000,
+        max_retries=0,
         app_url=OPENROUTER_APP_URL,
         app_title=OPENROUTER_APP_TITLE,
     )

@@ -4,15 +4,20 @@ import logging
 from collections.abc import Callable
 from typing import Any, Literal
 
-from langgraph.graph import END
 from langgraph.types import Command
 
 from src.agents.critic.base import CriticAgent
+from src.agents.nodes.slots import (
+    DEFAULT_MAX_ATTEMPTS,
+    current_anchor,
+    current_slot,
+    finish_slot,
+)
 from src.agents.schemas import (
     CriticEvaluation,
     CriticFeedback,
+    ExygenState,
     MarkdownParseError,
-    SlotSynthesisState,
 )
 
 logger = logging.getLogger(__name__)
@@ -20,27 +25,28 @@ logger = logging.getLogger(__name__)
 
 def create_critic_node(
     critic: CriticAgent,
-) -> Callable[[SlotSynthesisState], Command[Any]]:
+) -> Callable[[ExygenState], Command[Any]]:
     """Build the graph node that runs the given Critic.
 
     Args:
         critic: The agent the node calls.
 
     Returns:
-        A node that ends on an accepted draft, and otherwise retries or ends.
+        A node that finishes the slot when a draft is verified or cannot be checked, and
+        retries a draft with a real defect until the attempts run out.
     """
 
     def critic_node(
-        state: SlotSynthesisState,
+        state: ExygenState,
     ) -> Command[Literal["synthesizer", "__end__"]]:
-        slot = state["slot"]
-        anchor = state["anchor"]
-        question = state["current_question"]
+        slot = current_slot(state)
+        anchor = current_anchor(state)
+        question = state.get("current_question")
         if question is None:
             raise ValueError("critic_node invoked without current_question in state")
 
         attempt = state.get("attempt", 1)
-        max_attempts = state.get("max_attempts", 3)
+        max_attempts = state.get("max_attempts", DEFAULT_MAX_ATTEMPTS)
         feedback_history = list(state.get("feedback_history", []))
 
         try:
@@ -61,42 +67,24 @@ def create_critic_node(
                 accepted=False,
                 correctness_status="flagged",
                 code_sandbox_passed=None,
-                style_alignment_score=0.0,
+                style_alignment_score=None,
                 issues=[f"Critic format error: {exc}"],
                 verifier_notes=f"Critic response was malformed ({exc}); flagging attempt for retry.",
             )
 
         logger.info(
-            "Critic evaluated slot %d attempt %d: accepted=%s score=%.2f",
+            "Critic evaluated slot %d attempt %d: accepted=%s status=%s score=%s",
             slot.slot_number,
             attempt,
             evaluation.accepted,
+            evaluation.correctness_status,
             evaluation.style_alignment_score,
         )
 
-        if evaluation.accepted:
-            return Command(
-                update={
-                    "current_evaluation": evaluation,
-                    "final_question": question,
-                    "final_evaluation": evaluation,
-                },
-                goto=END,
-            )
-
-        # Rejected: record the verdict as working memory for the next Synthesizer attempt.
-        new_feedback = CriticFeedback(
-            attempt=attempt,
-            verifier_notes=evaluation.verifier_notes,
-            issues=evaluation.issues,
-            style_alignment_score=evaluation.style_alignment_score,
-        )
-        update = {
-            "current_evaluation": evaluation,
-            "final_question": question,
-            "feedback_history": [*feedback_history, new_feedback],
-            "attempt": attempt + 1,
-        }
+        # Verified is done. Unverified means it could not be checked, so another draft
+        # would not change that: it is kept for human review.
+        if evaluation.accepted or evaluation.correctness_status == "unverified":
+            return finish_slot(state, question, evaluation)
 
         if attempt + 1 > max_attempts:
             logger.warning(
@@ -105,9 +93,21 @@ def create_critic_node(
                 slot.slot_number,
                 max_attempts,
             )
-            update["final_evaluation"] = evaluation
-            return Command(update=update, goto=END)
+            return finish_slot(state, question, evaluation)
 
-        return Command(update=update, goto="synthesizer")
+        # Rejected: record the verdict as working memory for the next Synthesizer attempt.
+        new_feedback = CriticFeedback(
+            attempt=attempt,
+            verifier_notes=evaluation.verifier_notes,
+            issues=evaluation.issues,
+            style_alignment_score=evaluation.style_alignment_score,
+        )
+        return Command(
+            update={
+                "feedback_history": [*feedback_history, new_feedback],
+                "attempt": attempt + 1,
+            },
+            goto="synthesizer",
+        )
 
     return critic_node

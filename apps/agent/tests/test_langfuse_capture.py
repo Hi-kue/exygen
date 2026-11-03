@@ -110,7 +110,10 @@ def test_retry_prompts_are_captured_with_the_critic_feedback(
         "## SOLUTION\nB\n\n## EXPLANATION\nE\n\n## RATIONALE\nR\n"
     )
     rejection = "## ACCEPTED\nfalse\n\n## VERIFIER_NOTES\nThe index is wrong.\n"
-    acceptance = "## ACCEPTED\ntrue\n\n## VERIFIER_NOTES\nFine.\n"
+    acceptance = (
+        "## ACCEPTED\ntrue\n\n## CORRECTNESS_STATUS\nverified\n\n"
+        "## VERIFIER_NOTES\nFine.\n"
+    )
     llm = MockLLMClient(custom_responses=[draft, rejection, draft, acceptance])
 
     run_slot_synthesis(slot, anchor, llm=llm)

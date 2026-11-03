@@ -1,7 +1,7 @@
 ---
 title: Agent
 date: Saturday 24th October 2026 18:40:00
-modified_date: Sunday 1st November 2026 16:20:00
+modified_date: Tuesday 3rd November 2026 12:40:00
 summary: Overview of the exygen-agent Python package in apps/agent, with links to its pipeline and reference pages.
 tags:
     - agent
@@ -13,7 +13,7 @@ is_index?: true
 
 ## Summary
 
-`apps/agent` (package `exygen-agent`) is the Python package that implements the Exygen multi-agent pipeline, the OpenRouter LLM integration, and the Stage 3 LangGraph synthesis and critique loop. It also holds the shared Pydantic data contracts and a deterministic fallback, so the offline demo runs without external model credentials.
+`apps/agent` (package `exygen-agent`) is the Python package that implements the Exygen multi-agent pipeline. A single LangGraph graph, `exygen`, takes one exam from a source file to reviewed questions through the Classifier, Planner, Synthesizer, and Critic. The package also holds the shared Pydantic data contracts and a deterministic fallback, so the offline demo runs without external model credentials.
 
 ![Exygen CS Exam Generator Architecture](assets/exygen-architecture.jpg)
 
@@ -23,11 +23,11 @@ The docs for this package are split into two pages:
 
 | Page | Covers |
 | --- | --- |
-| [Pipeline](pipeline.md) | The four LLM-backed stages, their inputs and outputs, retry behavior, and what is implemented |
-| [Reference](reference.md) | Python modules, contracts, the LLM client, external clients, settings, the orchestrator, and tests |
+| [Pipeline](pipeline.md) | The stages of the Exygen graph, their inputs and outputs, retry behavior, known limits, and what is implemented |
+| [Reference](reference.md) | Python modules, contracts, the LLM client, external clients, tracing, settings, the command line, the orchestrator, and tests |
 
 !!! note "Two pipelines in the code"
-    The [Architecture](../architecture.md#pipeline) page lists the blueprint's six logical roles. The [Orchestrator](reference.md#orchestrator) runs those roles today with deterministic agents. The four-stage [Pipeline](pipeline.md) is the LLM-backed design. Only its Stage 3 has working code, and nothing connects it to the orchestrator yet.
+    The [Architecture](../architecture.md#pipeline) page lists the blueprint's six logical roles. The [Orchestrator](reference.md#orchestrator) runs those roles with deterministic agents, and the offline demo uses it. The [Exygen Graph](pipeline.md#the-exygen-graph) is the LLM-backed pipeline, and `python -m src run` uses it. Its first three stages have working code, and the final assembly stage does not exist yet. The two pipelines share no code path.
 
 ## Commands
 
@@ -37,7 +37,7 @@ pnpm nx run agent:test
 pnpm nx run agent:check
 ```
 
-See [Testing](reference.md#testing) for running the test suites and linter directly.
+`agent:dev` runs the offline demo, and `agent:test` makes real LLM requests when an API key is set. See [Command Line](reference.md#command-line) for running an exam through the graph, and [Testing](reference.md#testing) for running the test suites offline.
 
 ## Deployment
 

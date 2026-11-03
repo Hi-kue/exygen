@@ -4,15 +4,21 @@ import logging
 from collections.abc import Callable
 from typing import Any, Literal
 
-from langgraph.graph import END
 from langgraph.types import Command
+
+from src.agents.nodes.slots import (
+    DEFAULT_MAX_ATTEMPTS,
+    current_anchor,
+    current_slot,
+    finish_slot,
+)
 from src.agents.schemas import (
     AnchorQuestion,
     BlueprintSlot,
     CriticEvaluation,
     CriticFeedback,
+    ExygenState,
     MarkdownParseError,
-    SlotSynthesisState,
     SynthesizedQuestion,
 )
 from src.agents.synthesizer.base import QuestionSynthesizerAgent
@@ -46,24 +52,25 @@ def _flagged_question(
 
 def create_synthesizer_node(
     synthesizer: QuestionSynthesizerAgent,
-) -> Callable[[SlotSynthesisState], Command[Any]]:
+) -> Callable[[ExygenState], Command[Any]]:
     """Build the graph node that runs the given Synthesizer.
 
     Args:
         synthesizer: The agent the node calls.
 
     Returns:
-        A node that hands a parsed draft to 'critic', and otherwise retries or ends.
+        A node that hands a parsed draft to 'critic', and otherwise retries or finishes
+        the slot.
     """
 
     def synthesizer_node(
-        state: SlotSynthesisState,
+        state: ExygenState,
     ) -> Command[Literal["critic", "synthesizer", "__end__"]]:
-        slot = state["slot"]
-        anchor = state["anchor"]
+        slot = current_slot(state)
+        anchor = current_anchor(state)
         feedback_history = list(state.get("feedback_history", []))
         attempt = state.get("attempt", 1)
-        max_attempts = state.get("max_attempts", 3)
+        max_attempts = state.get("max_attempts", DEFAULT_MAX_ATTEMPTS)
 
         logger.info(
             "Synthesizer running for slot %d (Attempt %d)",
@@ -84,6 +91,23 @@ def create_synthesizer_node(
                 attempt,
                 exc,
             )
+            if attempt + 1 > max_attempts:
+                fallback_eval = CriticEvaluation(
+                    slot_number=slot.slot_number,
+                    accepted=False,
+                    correctness_status="flagged",
+                    code_sandbox_passed=None,
+                    style_alignment_score=None,
+                    issues=[str(exc)],
+                    verifier_notes=f"Rejected due to repeated Markdown format errors: {exc}",
+                )
+                return finish_slot(
+                    state,
+                    state.get("last_draft")
+                    or _flagged_question(slot, anchor, max_attempts),
+                    fallback_eval,
+                )
+
             format_feedback = CriticFeedback(
                 attempt=attempt,
                 verifier_notes=(
@@ -91,35 +115,20 @@ def create_synthesizer_node(
                     "Please regenerate and strictly include every mandatory Markdown header."
                 ),
                 issues=[str(exc)],
-                style_alignment_score=0.0,
+                style_alignment_score=None,
             )
-            update: dict[str, Any] = {
-                "current_question": None,
-                "current_evaluation": None,
-                "feedback_history": [*feedback_history, format_feedback],
-                "attempt": attempt + 1,
-            }
+            return Command(
+                update={
+                    "current_question": None,
+                    "feedback_history": [*feedback_history, format_feedback],
+                    "attempt": attempt + 1,
+                },
+                goto="synthesizer",
+            )
 
-            if attempt + 1 > max_attempts:
-                fallback_eval = CriticEvaluation(
-                    slot_number=slot.slot_number,
-                    accepted=False,
-                    correctness_status="flagged",
-                    code_sandbox_passed=None,
-                    style_alignment_score=0.0,
-                    issues=[str(exc)],
-                    verifier_notes=f"Rejected due to repeated Markdown format errors: {exc}",
-                )
-                update.update(
-                    current_evaluation=fallback_eval,
-                    final_question=state.get("final_question")
-                    or _flagged_question(slot, anchor, max_attempts),
-                    final_evaluation=fallback_eval,
-                )
-                return Command(update=update, goto=END)
-
-            return Command(update=update, goto="synthesizer")
-
-        return Command(update={"current_question": question}, goto="critic")
+        return Command(
+            update={"current_question": question, "last_draft": question},
+            goto="critic",
+        )
 
     return synthesizer_node

@@ -33,7 +33,7 @@ This changelog, dated 2026-10-29, covers the Unreleased state of the agent compo
 - `agents/__init__.py` only re-exports. The `exygen_agent.*` imports in `src/` and `tests/` are now `src.*`.
 - `pyproject.toml` and `project.json`: the wheel package is `src`, the `exygen-agent` script is `src.cli:main`, the Nx `sourceRoot` is `apps/agent/src`, and `agent:dev` runs `python -m src` from `apps/agent`.
 - Sources use LF line endings and ASCII text. The bullet character in the Markdown list parsers is written as an escape.
-- Docs: [Synthesis Graph](../pipeline.md#synthesis-graph) documents the handoff rules, [Python Modules](../reference.md#python-modules) lists the flat layout, and [Testing](../reference.md#testing) uses `uv run`.
+- Docs: [Synthesis Graph](../pipeline.md#agent-handoffs) documents the handoff rules, [Python Modules](../reference.md#python-modules) lists the flat layout, and [Testing](../reference.md#testing) uses `uv run`.
 
 ### Fixed
 

@@ -2,7 +2,7 @@
 robots: noindex, nofollow
 title: Changelogs
 date: Saturday 24th October 2026 18:40:00
-modified_date: Sunday 1st November 2026 16:20:00
+modified_date: Tuesday 3rd November 2026 12:40:00
 summary: Root changelog index for Exygen, listing the latest entry for each component (agent, api, web, platform).
 status: new
 is_index?: true
@@ -33,20 +33,25 @@ Each component keeps its own `changelogs/` folder with one file per release or b
 ## Agent
 
 - **Source**: `apps/agent`, the Python multi-agent pipeline and Pydantic contracts.
-- **Latest**: [261029-B Command Handoff and Src Consolidation](agent/changelogs/261029-B-command-handoffs.md)
-- **Earlier today**: [261029-A Agent Clients and Naming](agent/changelogs/261029-A-clients-naming.md)
+- **Latest**: [261103-B Single Exygen Graph](agent/changelogs/261103-B-exygen-graph.md)
+- **Earlier today**: [261103-A Agent Restructure and Classifier](agent/changelogs/261103-A-agent-restructure.md)
 
-### [Unreleased] - 261029-A, 261029-B
+### [Unreleased] - 261103-A, 261103-B
 
 #### Added
 
-- Langfuse, Docling and Clef clients, with `CF_*`, `DOCLING_*` and `AGENT_CLEF_*` settings.
+- A deterministic Planner, figure reading through a vision model, and the Classifier.
+- `python -m src run <path>`, which runs one exam through the graph.
 
 #### Changed/Refactored
 
-- Agents are named Classifier, Synthesizer and Critic instead of Agent 1, 2 and 3.
-- The Synthesizer and Critic hand off with LangGraph `Command` instead of conditional edges.
-- The agent package uses the flat `src` layout and `src.<module>` imports.
+- One `exygen` graph takes an exam from a source file to reviewed questions, as one Langfuse trace in the exam's session. Stage 4 does not exist yet, so a run does not produce an exam.
+- The agents live in `src/agents/`, contracts in `src/schemas/`, and `ChatOpenRouter` replaces the custom LLM client.
+- A value that was not measured stays `None`. A question is either verified and accepted, or it is not, and code cannot be verified without a real sandbox run.
+
+#### Fixed
+
+- The Critic no longer reads a negated verdict as accepted, or invents a style score or a sandbox result.
 
 ---
 

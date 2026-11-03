@@ -84,4 +84,4 @@ lerna-debug.log*
 
 # Other
 tmp/
-docs/
+docs/superpowers/*

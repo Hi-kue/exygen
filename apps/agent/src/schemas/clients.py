@@ -33,6 +33,21 @@ SIGNATURES: dict[str, tuple[bytes, ...]] = {
 MIN_TEXT_LAYER_CHARS = 10
 
 
+class ExtractedFigure(BaseModel):
+    """A picture found on a page, such as a diagram or an image of a question.
+
+    Attributes:
+        figure_id: Identifies the figure, e.g. 'p3-f1'. The page text holds a matching
+            '[FIGURE p3-f1]' placeholder where the figure appears.
+        page_number: 1-based page number the figure is on.
+        image_base64: The picture as a base64 PNG, or None if it could not be read.
+    """
+
+    figure_id: str = Field(min_length=1)
+    page_number: int = Field(ge=1)
+    image_base64: str | None = None
+
+
 class PageExtraction(BaseModel):
     """The text of one page of a source document.
 
@@ -42,11 +57,16 @@ class PageExtraction(BaseModel):
         text: The page content as Markdown, with tables preserved.
         used_ocr: True when the page had no text layer, or OCR was forced, so the
             text came from OCR and may contain recognition errors.
+        figures: The figures on the page, in reading order.
+        page_image_base64: A base64 PNG of the whole page, only when extraction found
+            almost no text or figures on it, so the page can be read another way.
     """
 
     page_number: int = Field(ge=1)
     text: str
     used_ocr: bool = False
+    figures: list[ExtractedFigure] = Field(default_factory=list)
+    page_image_base64: str | None = None
 
 
 class DocumentExtraction(BaseModel):
@@ -86,7 +106,11 @@ class DocumentExtraction(BaseModel):
 SECRET_PATTERN = re.compile(
     r"(?:sk|pk)-(?:lf-)?[A-Za-z0-9_-]{16,}|Bearer\s+[A-Za-z0-9._~+/=-]{16,}"
 )
-MAX_FIELD_CHARS = 20_000
+# NOTE:
+# Traces keep full LLM prompts, so this must stay above the longest prompt the agents send,
+# which is a whole document of up to AGENT_CLASSIFIER_WHOLE_DOCUMENT_MAX_CHARS plus its
+# instructions.
+MAX_FIELD_CHARS = 250_000
 
 
 class AgentIdentifier(StrEnum):
@@ -99,11 +123,13 @@ class AgentIdentifier(StrEnum):
     Members:
         CLASSIFIER: The Classifier, tags parsed questions with topic, format and marks.
         SYNTHESIZER: The Synthesizer, writes an original question for a blueprint slot.
+        PLANNER: The Planner, turns tagged questions into a blueprint of slots.
         CRITIC: The Critic, verifies a drafted question and runs the code sandbox.
         OTHER: Fallback for work that is not attributable to the three agents (or other agents above).
     """
 
     CLASSIFIER = "classifier"
+    PLANNER = "planner"
     SYNTHESIZER = "synthesizer"
     CRITIC = "critic"
 

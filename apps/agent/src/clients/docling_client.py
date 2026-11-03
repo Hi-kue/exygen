@@ -38,8 +38,10 @@ DoclingDocument docs: https://docling-project.github.io/docling/concepts/docling
 
 from __future__ import annotations
 
+import base64
 import logging
 import threading
+from io import BytesIO
 from pathlib import Path
 from typing import Any
 
@@ -57,8 +59,9 @@ from docling.document_converter import (
 )
 from docling.exceptions import ConversionError
 from docling_core.transforms.chunker.hybrid_chunker import HybridChunker
-from docling_core.types.doc.document import DoclingDocument
+from docling_core.types.doc.document import DoclingDocument, PictureItem
 from langfuse import get_client
+from PIL import Image
 
 from src.clients.langfuse_client import traced_tool
 from src.schemas.clients import (
@@ -66,6 +69,7 @@ from src.schemas.clients import (
     MIN_TEXT_LAYER_CHARS,
     SIGNATURES,
     DocumentExtraction,
+    ExtractedFigure,
     PageExtraction,
 )
 from src.settings import settings
@@ -83,6 +87,15 @@ SUFFIX_FORMATS: dict[str, InputFormat | None] = {
     ".txt": None,
     **dict.fromkeys(IMAGE_SUFFIXES, InputFormat.IMAGE),
 }
+
+DOCLING_IMAGE_PLACEHOLDER = "<!-- image -->"
+
+
+def _encode_png(image: Image.Image) -> str:
+    """Encode a picture as a base64 PNG."""
+    buffer = BytesIO()
+    image.save(buffer, format="PNG")
+    return base64.b64encode(buffer.getvalue()).decode("ascii")
 
 
 # region Docling Client Errors Handlers
@@ -311,6 +324,8 @@ class DoclingClient:
             do_code_enrichment=cfg.do_code_enrichment,
             do_formula_enrichment=cfg.do_formula_enrichment,
             document_timeout=cfg.document_timeout_seconds,
+            generate_picture_images=cfg.capture_figures,
+            images_scale=cfg.figure_images_scale,
         )
         return DocumentConverter(
             allowed_formats=[fmt for fmt in set(SUFFIX_FORMATS.values()) if fmt],
@@ -408,15 +423,7 @@ class DoclingClient:
         ocr_pages = self._ocr_pages(path, page_numbers)
 
         pages = [
-            PageExtraction(
-                page_number=number,
-                text=(
-                    document.export_to_markdown(page_no=number)
-                    if paginated
-                    else document.export_to_markdown()
-                ).strip(),
-                used_ocr=number in ocr_pages,
-            )
+            self._build_page(path, document, number, paginated, number in ocr_pages)
             for number in page_numbers
         ]
 
@@ -441,6 +448,123 @@ class DoclingClient:
             pages=pages,
             warnings=warnings,
         )
+
+    def _build_page(
+        self,
+        path: Path,
+        document: DoclingDocument,
+        number: int,
+        paginated: bool,
+        used_ocr: bool,
+    ) -> PageExtraction:
+        """Export one page, keeping its figures and any page that has almost no text.
+
+        Args:
+            path: The source path, used to render a page with almost no text.
+            document: The document converted from 'path'.
+            number: The page to export.
+            paginated: Whether the document has pages.
+            used_ocr: Whether the page was read with OCR.
+
+        Returns:
+            The page, with a '[FIGURE <id>]' placeholder where each figure appears.
+        """
+        page_no = number if paginated else None
+        # Exam text must stay as written: the defaults turn '&' into '&amp;' and escape '_'.
+        text = document.export_to_markdown(
+            page_no=page_no, escape_html=False, escape_underscores=False
+        ).strip()
+        if not settings.docling.capture_figures:
+            return PageExtraction(page_number=number, text=text, used_ocr=used_ocr)
+
+        text, figures = self._place_figures(document, page_no, number, text)
+        page_image = None
+        if len(text) < MIN_TEXT_LAYER_CHARS:
+            page_image = self._render_page(path, number)
+        return PageExtraction(
+            page_number=number,
+            text=text,
+            used_ocr=used_ocr,
+            figures=figures,
+            page_image_base64=page_image,
+        )
+
+    @staticmethod
+    def _place_figures(
+        document: DoclingDocument, page_no: int | None, number: int, text: str
+    ) -> tuple[str, list[ExtractedFigure]]:
+        """Replace each picture placeholder on a page with a numbered figure.
+
+        Docling exports every picture as the same placeholder, in reading order, so
+        they are matched to the pictures in that order. Tiny pictures are removed as
+        decoration.
+
+        Args:
+            document: The converted document.
+            page_no: The page to read pictures from, or None for an unpaginated document.
+            number: The page number used in figure ids.
+            text: The page's exported Markdown.
+
+        Returns:
+            The text with its placeholders replaced, and the figures in reading order.
+        """
+        min_pixels = settings.docling.figure_min_pixels
+        figures: list[ExtractedFigure] = []
+        pictures = (
+            item
+            for item, _ in document.iterate_items(page_no=page_no)
+            if isinstance(item, PictureItem)
+        )
+        parts = text.split(DOCLING_IMAGE_PLACEHOLDER)
+        rebuilt = parts[0]
+        for part in parts[1:]:
+            picture = next(pictures, None)
+            if picture is None:
+                rebuilt += DOCLING_IMAGE_PLACEHOLDER + part
+                continue
+            image = picture.get_image(document)
+            if image is not None and min(image.size) < min_pixels:
+                rebuilt += part
+                continue
+            figure_id = f"p{number}-f{len(figures) + 1}"
+            figures.append(
+                ExtractedFigure(
+                    figure_id=figure_id,
+                    page_number=number,
+                    image_base64=_encode_png(image) if image is not None else None,
+                )
+            )
+            rebuilt += f"[FIGURE {figure_id}]{part}"
+        return rebuilt.strip(), figures
+
+    @staticmethod
+    def _render_page(path: Path, number: int) -> str | None:
+        """Render a whole page as a base64 PNG, for a page with almost no text.
+
+        Args:
+            path: The validated source path.
+            number: The 1-based page number.
+
+        Returns:
+            The rendered page, or None if the format has no pages or rendering fails.
+        """
+        suffix = path.suffix.lower()
+        try:
+            if SUFFIX_FORMATS[suffix] == InputFormat.IMAGE:
+                with Image.open(path) as image:
+                    return _encode_png(image)
+            if suffix != ".pdf":
+                return None
+            pdf = pdfium.PdfDocument(str(path))
+            try:
+                page = pdf[number - 1]
+                bitmap = page.render(scale=settings.docling.figure_images_scale)
+                return _encode_png(bitmap.to_pil())
+            finally:
+                pdf.close()
+        except (pdfium.PdfiumError, OSError, IndexError, KeyError):
+            logger.warning("Could not render page %d of %s", number, path.name)
+            return None
 
     @staticmethod
     def _ocr_pages(path: Path, page_numbers: list[int]) -> set[int]:

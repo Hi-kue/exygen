@@ -3,7 +3,7 @@
 NOTE:
 This file contains a singleton instance of our Langfuse client that handles
 telemetry and observability for Exygen agents. Every observation is attributed
-to one of the three agents through an 'AgentIdentifier' ('classifier | synthesizer
+to one of the agents through an 'AgentIdentifier' ('classifier | planner | synthesizer
 | critic | other'), so a single exam run shows up in Langfuse
 as one session, with one 'agent' observation per agent and nested generations
 and tool calls beneath it.
