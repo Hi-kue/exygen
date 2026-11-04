@@ -4,6 +4,7 @@ rich
 pydantic
 pydantic-settings
 openai
+daytona
 
 # Agent Dependencies
 langgraph

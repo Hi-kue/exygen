@@ -8,6 +8,7 @@ from exygen_agent.sandbox.code_parsing import (
 )
 from exygen_agent.sandbox.code_preparation import SYSTEM_PROMPT, build_code_preparation_prompt
 from exygen_agent.sandbox.code_sandbox_result import CodeSandboxResult
+from exygen_agent.sandbox.daytona_service import DaytonaSandboxService
 from exygen_agent.sandbox.language_resolution import resolve_language
 from exygen_agent.sandbox.sandbox_result import SandboxExecutionResult
 from exygen_agent.sandbox.validation_code import (
@@ -19,6 +20,7 @@ from exygen_agent.sandbox.validation_code import (
 __all__ = [
     "CodeSandboxResult",
     "SandboxExecutionResult",
+    "DaytonaSandboxService",
     "DEFAULT_FILENAMES",
     "DEFAULT_FILENAME",
     "FILE_MARKER_PATTERN",
