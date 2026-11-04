@@ -11,6 +11,10 @@ from exygen_agent.contracts import (
     StyleProfile,
     ValidationReport,
 )
+from exygen_agent.agents.code_sandbox_agent import CodeSandboxAgent
+from exygen_agent.sandbox.code_sandbox_result import CodeSandboxResult
+from exygen_agent.sandbox.daytona_service import DaytonaSandboxService
+from exygen_agent.sandbox.sandbox_result import SandboxExecutionResult
 from exygen_agent.critic import CriticAgent, build_critic_prompt, parse_critic_markdown
 from exygen_agent.llm_client import BaseLLMClient, MockLLMClient, OpenRouterClient, get_llm_client
 from exygen_agent.orchestrator import ExamPipelineOrchestrator, default_synthetic_documents
@@ -41,6 +45,10 @@ __all__ = [
     "AssembledExam",
     "BaseLLMClient",
     "BlueprintSlot",
+    "CodeSandboxAgent",
+    "CodeSandboxResult",
+    "DaytonaSandboxService",
+    "SandboxExecutionResult",
     "CriticAgent",
     "CriticEvaluation",
     "CriticFeedback",

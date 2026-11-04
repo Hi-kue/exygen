@@ -1,12 +1,22 @@
 from __future__ import annotations
 
+import argparse
 import json
+from typing import List, Optional
 
 from exygen_agent.contracts import ExamGenerationRequest
 from exygen_agent.orchestrator import ExamPipelineOrchestrator, default_synthetic_documents
 
 
-def main() -> None:
+def main(argv: Optional[List[str]] = None) -> None:
+    parser = argparse.ArgumentParser(
+        prog="exygen-agent",
+        description="Exygen multi-agent orchestration and exam generation pipeline",
+    )
+    subparsers = parser.add_subparsers(dest="command")
+    subparsers.add_parser("run", help="Run the default synthetic end-to-end demo.")
+    args = parser.parse_args(argv)
+
     orchestrator = ExamPipelineOrchestrator()
     docs = default_synthetic_documents()
     extracted = [orchestrator.extract_document(doc) for doc in docs]
