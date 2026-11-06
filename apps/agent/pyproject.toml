@@ -9,9 +9,9 @@ dependencies = [
     "openai>=1.50.0",
     "langgraph>=0.2.0",
     "pydantic-settings>=2.16.1",
-    "pytest>=9.1.1",
     "rich>=15.0.0",
     "docling[rapidocr]>=2.143.1",
+    "httpx>=0.28.1",
     "langchain>=1.4.7",
     "langchain-core>=1.7.0",
     "langchain-openrouter>=0.2.9",
@@ -19,14 +19,128 @@ dependencies = [
     "langfuse>=5.0.4",
     "langfuse-sdk>=1.0.0",
     "langfuse-mcp>=0.14.0",
+    "ruff>=0.17.3",
+    "pytest>=9.1.1",
+    "ipython>=9.17.1",
 ]
 
 [project.scripts]
-exygen-agent = "exygen_agent.cli:main"
+exygen-agent = "src.cli:main"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/exygen_agent"]
+packages = ["src"]
+
+
+[dependency-groups]
+dev = ["ruff>=0.17.3", "pytest>=9.1.1"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+pythonpath = ["."]
+
+[tool.ruff]
+target-version = "py313"
+extend-exclude = [
+    "src/rag/ingest/*",
+    "src/rag/upsert_vectorize.py",
+    ".agents/*",
+    "migrations/*",
+]
+
+[tool.ruff.lint]
+preview = true
+
+select = [
+    "correctness",
+    "suspicious",
+    "complexity",
+    "performance",
+    "style",
+
+    # pycodestyle
+    "ambiguous-class-name",
+    "ambiguous-function-name",
+    "ambiguous-variable-name",
+    "lambda-assignment",
+    "module-import-not-at-top-of-file",
+    "multiple-imports-on-one-line",
+    "multiple-leading-hashes-for-block-comment",
+    "no-indented-block",
+    "none-comparison",
+    "not-in-test",
+    "not-is-test",
+    "true-false-comparison",
+    "type-comparison",
+    "unexpected-indentation",
+
+    # pyflakes
+    "forward-annotation-syntax-error",
+    "undefined-local-with-import-star",
+    "undefined-local-with-import-star-usage",
+
+    # bugbear
+    "batched-without-explicit-strict",
+    "class-as-data-structure",
+    "map-without-explicit-strict",
+    "no-explicit-stacklevel",
+    "raise-without-from-inside-except",
+    "re-sub-positional-args",
+    "unused-loop-control-variable",
+    "zip-without-explicit-strict",
+
+    # flake8-comprehensions
+    "unnecessary-comprehension",
+
+    # flake8-simplify
+    "compare-with-tuple",
+    "dict-get-with-none-default",
+    "if-else-block-instead-of-dict-lookup",
+    "if-else-block-instead-of-if-exp",
+    "if-expr-with-twisted-arms",
+    "suppressible-exception",
+    "uncapitalized-environment-variables",
+    "yoda-conditions",
+
+    # isort
+    "missing-required-import",
+
+    # pyupgrade
+    "convert-typed-dict-functional-to-class",
+    "redundant-open-modes",
+
+    # pygrep-hooks
+    "blanket-noqa",
+    "blanket-type-ignore",
+
+    # flake8-pyi
+    "argument-default-in-stub",
+    "collections-named-tuple",
+    "docstring-in-stub",
+    "numeric-literal-too-long",
+    "redundant-literal-union",
+    "string-or-bytes-too-long",
+    "typed-argument-default-in-stub",
+    "unsupported-method-call-on-all",
+
+    # RUF
+    "ambiguous-unicode-character-comment",
+    "ambiguous-unicode-character-docstring",
+    "ambiguous-unicode-character-string",
+    "asyncio-dangling-task",
+    "collection-literal-concatenation",
+    "incorrectly-parenthesized-tuple-in-subscript",
+    "non-empty-init-module",
+    "noqa-comments",
+    "parenthesize-chained-operators",
+    "rule-codes-in-selectors",
+    "unnecessary-assign-before-yield",
+    "unraw-re-pattern",
+    "unused-async",
+    "used-dummy-variable",
+]
+
+ignore = ["assert-false", "line-too-long", "repeated-append"]

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from exygen_agent import (
+from src import (
     AnchorQuestion,
     BlueprintSlot,
     CriticFeedback,
@@ -59,7 +59,7 @@ def test_synthesizer_agent_mcq_end_to_end(
     sample_anchor: AnchorQuestion,
 ) -> None:
     mock_client = MockLLMClient()
-    agent = QuestionSynthesizerAgent(llm_client=mock_client)
+    agent = QuestionSynthesizerAgent(llm=mock_client)
     q = agent.synthesize(slot=mcq_slot, anchor=sample_anchor)
 
     assert q.slot_number == 2
@@ -157,8 +157,10 @@ Tests convention awareness.
     assert "## EXPLANATION" in exc_info.value.missing_sections
 
 
-def test_mcq_with_fewer_than_four_options_raises_parse_error(mcq_slot: BlueprintSlot) -> None:
-    # Only (A), (B), (C) provided — missing (D)
+def test_mcq_with_fewer_than_four_options_raises_parse_error(
+    mcq_slot: BlueprintSlot,
+) -> None:
+    # Only (A), (B), (C) provided - missing (D)
     bad_mcq_markdown = """## QUESTION
 Which sorting algorithm is stable?
 
@@ -180,7 +182,9 @@ Concept check.
         parse_synthesized_markdown(bad_mcq_markdown, mcq_slot)
 
 
-def test_mcq_with_invalid_solution_letter_raises_parse_error(mcq_slot: BlueprintSlot) -> None:
+def test_mcq_with_invalid_solution_letter_raises_parse_error(
+    mcq_slot: BlueprintSlot,
+) -> None:
     bad_solution_markdown = """## QUESTION
 Which sorting algorithm is stable?
 
@@ -199,7 +203,9 @@ Merge sort preserves relative order.
 ## RATIONALE
 Concept check.
 """
-    with pytest.raises(MarkdownParseError, match="must start with or be one of A, B, C, or D"):
+    with pytest.raises(
+        MarkdownParseError, match="must start with or be one of A, B, C, or D"
+    ):
         parse_synthesized_markdown(bad_solution_markdown, mcq_slot)
 
 

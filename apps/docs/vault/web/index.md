@@ -1,7 +1,7 @@
 ---
 title: Web
 date: Saturday 24th October 2026 18:40:00
-modified_date: Saturday 24th October 2026 18:40:00
+modified_date: Sunday 1st November 2026 14:45:00
 summary: React and TanStack website and exam studio in apps/web.
 tags:
     - web
@@ -33,6 +33,10 @@ pnpm nx run web:dev
 pnpm nx run web:typecheck
 pnpm nx run web:check
 ```
+
+## Deployment
+
+The web app is planned to run on Cloudflare Workers. This is not deployed yet, and `apps/web` has no Worker configuration. See [Frontend: Cloudflare Workers](../architecture.md#frontend-cloudflare-workers).
 
 ## Changelog
 

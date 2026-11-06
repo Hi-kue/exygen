@@ -28,7 +28,7 @@ ARTIFACT_DIRS=(
     __pycache__ .mypy_cache .ruff_cache .pytest_cache
     .hypothesis htmlcov .tox .eggs .venv venv env .env_dir
     .cache .parcel-cache .turbo .next .nuxt .svelte-kit
-    storybook-static .storybook-out
+    storybook-static .storybook-out site .cache
 )
 
 GLOB_PATTERNS=("*.egg-info" "*.dist-info")

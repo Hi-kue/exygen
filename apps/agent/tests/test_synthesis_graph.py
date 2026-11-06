@@ -1,22 +1,21 @@
 from __future__ import annotations
 
 import pytest
-from openai import APIError
+from openrouter.errors import OpenRouterError
 
-from exygen_agent import (
+from src import (
     AnchorQuestion,
     BlueprintSlot,
     CriticFeedback,
     ExamBlueprintWithSlots,
     MockLLMClient,
-    OpenRouterClient,
     build_synthesis_prompt,
+    get_chat_model,
     parse_critic_markdown,
     parse_synthesized_markdown,
     run_slot_synthesis,
     synthesize_exam_slots,
 )
-from exygen_agent.settings import settings
 
 
 @pytest.fixture
@@ -165,8 +164,8 @@ Question is solvable and unambiguous. Trace verified: 2 swaps, final index 1. Ma
     assert eval_res.slot_number == 2
     assert eval_res.accepted is True
     assert eval_res.correctness_status == "verified"
-    assert eval_res.code_sandbox_passed is True
-    assert eval_res.style_alignment_score == 0.94
+    assert eval_res.code_sandbox_passed is None
+    assert eval_res.style_alignment_score == pytest.approx(0.94)
     assert len(eval_res.issues) == 0
     assert "Trace verified" in eval_res.verifier_notes
 
@@ -199,17 +198,24 @@ def test_langgraph_single_attempt_accepted(
     sample_slot: BlueprintSlot,
     sample_anchor: AnchorQuestion,
 ) -> None:
-    mock_client = MockLLMClient()
+    mock_client = MockLLMClient(
+        response_map={
+            "CANDIDATE QUESTION TO EVALUATE": (
+                "## ACCEPTED\ntrue\n\n## CORRECTNESS_STATUS\nverified\n\n"
+                "## STYLE_ALIGNMENT_SCORE\n0.92\n\n## VERIFIER_NOTES\nChecked.\n"
+            )
+        }
+    )
     q, evaluation = run_slot_synthesis(
         slot=sample_slot,
         anchor=sample_anchor,
-        llm_client=mock_client,
+        llm=mock_client,
     )
     assert q.slot_number == 2
     assert evaluation.accepted is True
     assert evaluation.correctness_status == "verified"
     assert evaluation.code_sandbox_passed is None
-    assert evaluation.style_alignment_score >= 0.90
+    assert evaluation.style_alignment_score == pytest.approx(0.92)
     assert len(mock_client.call_history) == 2  # 1 synthesizer call + 1 critic call
 
 
@@ -272,13 +278,13 @@ Corrected parent index arithmetic verified. Question is clean and aligned with i
         slot=sample_slot,
         anchor=sample_anchor,
         max_attempts=3,
-        llm_client=mock_client,
+        llm=mock_client,
     )
 
     assert q.slot_number == 2
     assert "Corrected draft question text" in q.prompt
     assert evaluation.accepted is True
-    assert evaluation.style_alignment_score == 0.95
+    assert evaluation.style_alignment_score == pytest.approx(0.95)
     # Verify call history: 2 synthesizer calls + 2 critic calls = 4 total calls
     assert len(mock_client.call_history) == 4
     # Check that synthesizer call 2 received the feedback from attempt 1
@@ -291,7 +297,7 @@ def test_langgraph_reprompts_synthesizer_when_mandatory_section_missing(
     sample_slot: BlueprintSlot,
     sample_anchor: AnchorQuestion,
 ) -> None:
-    """Verifies that if Agent 2 forgets ## SOLUTION or ## EXPLANATION, Agent 3 is skipped and Agent 2 is reprompted."""
+    """Verifies that if the Synthesizer forgets ## SOLUTION or ## EXPLANATION, the Critic is skipped and the Synthesizer is reprompted."""
     malformed_synth_attempt_1 = """## QUESTION
 What is the worst-case time complexity of inserting into a binary heap?
 
@@ -353,7 +359,7 @@ Complete sections and accurate complexity derivation.
         slot=sample_slot,
         anchor=sample_anchor,
         max_attempts=3,
-        llm_client=mock_client,
+        llm=mock_client,
     )
 
     assert evaluation.accepted is True
@@ -407,11 +413,11 @@ Flaw persists.
         ]
     )
 
-    q, evaluation = run_slot_synthesis(
+    _, evaluation = run_slot_synthesis(
         slot=sample_slot,
         anchor=sample_anchor,
         max_attempts=3,
-        llm_client=mock_client,
+        llm=mock_client,
     )
 
     assert evaluation.accepted is False
@@ -483,37 +489,35 @@ def test_synthesize_exam_slots_batch_runner() -> None:
     questions, evaluations = synthesize_exam_slots(
         blueprint=blueprint,
         anchors=anchors,
-        llm_client=mock_client,
+        llm=mock_client,
     )
 
     assert len(questions) == 3
     assert len(evaluations) == 3
     assert [q.slot_number for q in questions] == [1, 2, 3]
-    assert all(e.accepted for e in evaluations)
+    assert all(e.correctness_status == "unverified" for e in evaluations)
+    assert not any(e.accepted for e in evaluations)
     assert questions[0].mcq_options is not None
     assert questions[2].mcq_options is None
-    assert evaluations[0].code_sandbox_passed is None
-    assert evaluations[2].code_sandbox_passed is True
+    assert all(e.code_sandbox_passed is None for e in evaluations)
 
 
 def test_live_openrouter_if_key_present(
     sample_slot: BlueprintSlot,
     sample_anchor: AnchorQuestion,
 ) -> None:
-    if settings.agent.openrouter_api_key is None:
-        pytest.skip(
-            "AGENT_OPENROUTER_API_KEY not set. Skipping live LLM integration test."
-        )
+    llm = get_chat_model()
+    if isinstance(llm, MockLLMClient):
+        pytest.skip("OpenRouter is not configured. Skipping live LLM integration test.")
 
-    client = OpenRouterClient()
     try:
         q, evaluation = run_slot_synthesis(
             slot=sample_slot,
             anchor=sample_anchor,
             max_attempts=2,
-            llm_client=client,
+            llm=llm,
         )
-    except APIError as exc:
+    except OpenRouterError as exc:
         pytest.skip(f"OpenRouter live call skipped due to provider/credit limit: {exc}")
 
     assert q.slot_number == sample_slot.slot_number

@@ -72,6 +72,9 @@ lerna-debug.log*
 # AI Assistants
 .codegpt
 .claude/scheduled_tasks.lock
+.claude
+.opencode
+.pi
 
 # Locals
 /locals/pi*
@@ -81,3 +84,4 @@ lerna-debug.log*
 
 # Other
 tmp/
+docs/superpowers/*

@@ -2,13 +2,14 @@
 	"name": "agent",
 	"$schema": "../../node_modules/nx/schemas/project-schema.json",
 	"projectType": "application",
-	"sourceRoot": "apps/agent/src/exygen_agent",
+	"sourceRoot": "apps/agent/src",
 	"tags": ["lang:python", "scope:agent"],
 	"targets": {
 		"dev": {
 			"executor": "nx:run-commands",
 			"options": {
-				"command": "uv run --package exygen-agent python -m exygen_agent"
+				"command": "uv run --package exygen-agent python -m src",
+				"cwd": "apps/agent"
 			}
 		},
 		"build": {

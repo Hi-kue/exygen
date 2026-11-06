@@ -1,8 +1,8 @@
 ---
 title: Agent
 date: Saturday 24th October 2026 18:40:00
-modified_date: Saturday 24th October 2026 18:40:00
-summary: Python multi-agent pipeline and Pydantic contracts in apps/agent.
+modified_date: Tuesday 3rd November 2026 12:40:00
+summary: Overview of the exygen-agent Python package in apps/agent, with links to its pipeline and reference pages.
 tags:
     - agent
     - pipeline
@@ -13,22 +13,21 @@ is_index?: true
 
 ## Summary
 
-`apps/agent` (package `exygen-agent`) holds the six-stage pipeline and the shared Pydantic data contracts: extraction, style analysis, planning, generation, validation, and assembly. It includes a deterministic fallback so the pipeline runs without external model credentials.
+`apps/agent` (package `exygen-agent`) is the Python package that implements the Exygen multi-agent pipeline. A single LangGraph graph, `exygen`, takes one exam from a source file to reviewed questions through the Classifier, Planner, Synthesizer, and Critic. The package also holds the shared Pydantic data contracts and a deterministic fallback, so the offline demo runs without external model credentials.
 
-> **Status**: This page lists the contracts the blueprint requires. When the schemas or agents change in code, update this page and add a changelog entry.
+![Exygen CS Exam Generator Architecture](assets/exygen-architecture.jpg)
 
-## Data Contracts
+## Pages
 
-The blueprint (`.agents/index.md`, section 6) defines these minimum contracts. Each boundary is validated and fails with explicit errors on missing or malformed fields.
+The docs for this package are split into two pages:
 
-| Contract | Fields |
+| Page | Covers |
 | --- | --- |
-| `SourceDocument` | `id`, `filename`, `document_type`, `permission_status`, `course`, `pages` |
-| `ExtractedQuestion` | `id`, `source_document_id`, `page_number`, `section`, `text`, `marks`, `question_type`, `topics` |
-| `StyleProfile` | `source_document_ids`, `sections`, `question_type_distribution`, `topic_distribution`, `difficulty_distribution`, `terminology`, `wording_patterns`, `evidence`, `limitations` |
-| `ExamBlueprint` | `total_marks`, `duration_minutes`, `sections`, `questions_per_section`, `topic_targets`, `difficulty_targets` |
-| `GeneratedQuestion` | `id`, `prompt`, `marks`, `format`, `topic`, `difficulty`, `solution`, `explanation`, `provenance` |
-| `ValidationReport` | `question_id`, `correctness_status`, `style_alignment_score`, `duplicate_risk`, `issues`, `verifier_notes`, `accepted` |
+| [Pipeline](pipeline.md) | The stages of the Exygen graph, their inputs and outputs, retry behavior, known limits, and what is implemented |
+| [Reference](reference.md) | Python modules, contracts, the LLM client, external clients, tracing, settings, the command line, the orchestrator, and tests |
+
+!!! note "Two pipelines in the code"
+    The [Architecture](../architecture.md#pipeline) page lists the blueprint's six logical roles. The [Orchestrator](reference.md#orchestrator) runs those roles with deterministic agents, and the offline demo uses it. The [Exygen Graph](pipeline.md#the-exygen-graph) is the LLM-backed pipeline, and `python -m src run` uses it. Its first three stages have working code, and the final assembly stage does not exist yet. The two pipelines share no code path.
 
 ## Commands
 
@@ -37,6 +36,12 @@ pnpm nx run agent:dev
 pnpm nx run agent:test
 pnpm nx run agent:check
 ```
+
+`agent:dev` runs the offline demo, and `agent:test` makes real LLM requests when an API key is set. See [Command Line](reference.md#command-line) for running an exam through the graph, and [Testing](reference.md#testing) for running the test suites offline.
+
+## Deployment
+
+The agent package is planned to run inside the API container on `api-01`, with no host of its own. This is not deployed yet. See [Deployment](../architecture.md#deployment).
 
 ## Changelog
 

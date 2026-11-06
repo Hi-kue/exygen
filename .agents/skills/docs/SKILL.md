@@ -17,11 +17,16 @@ Code is the source of truth, then `.agents/index.md`, then the docs. Docs descri
 | --- | --- |
 | `apps/docs/vault/changelog.md` | Root hub: latest entry per component |
 | `apps/docs/vault/<component>/index.md` | Component overview (`agent`, `api`, `web`, `platform`) |
-| `apps/docs/vault/<component>/changelogs/` | One file per change: `YYYY-MM-DD-changelog-<shortform>.md` |
-| `apps/docs/vault/architecture.md`, `data-policy.md`, `evaluation.md` | Project-wide pages |
+| `apps/docs/vault/<component>/changelogs/` | One file per change: `YYMMDD-X-<shortform>.md` |
+| `apps/docs/vault/agent/pipeline.md`, `agent/reference.md` | Agent stages, and the agent's modules, contracts, settings, orchestrator, and tests |
+| `apps/docs/vault/architecture.md` | Pipeline, monorepo, and deployment architecture |
+| `apps/docs/vault/evaluation.md` | Evaluation dimensions and measured results |
+| `apps/docs/vault/resources/` | Policy, legal, and other project-wide reference material, including `data-policy.md` |
 | `apps/docs/tmpl/changelog-note.md` | Changelog entry template |
 
 Run `ls apps/docs/vault` before editing. The tree may have grown since this table was written.
+
+Extend the page that already covers a topic. Add a page only when no existing page fits, and never repeat a table or diagram that another page holds. Link to it instead.
 
 ## Pick the Component
 
@@ -36,10 +41,10 @@ A change spanning several components gets one entry in each.
 
 ## Add a Changelog Entry
 
-1. Create `apps/docs/vault/<component>/changelogs/YYYY-MM-DD-changelog-<shortform>.md`. Use today's date and a short lowercase hyphenated shortform. Create the folder if it does not exist.
+1. Pick the date ID `YYMMDD-X`. The date `2026-10-29` becomes `261029`. `X` is the next unused letter for that date, starting at `A`, across every `changelogs/` folder in the vault, so run `ls apps/docs/vault/*/changelogs/YYMMDD-*` first. Create `apps/docs/vault/<component>/changelogs/YYMMDD-X-<shortform>.md` with a short lowercase hyphenated shortform. Create the folder if it does not exist.
 2. Copy the structure of `apps/docs/tmpl/changelog-note.md`. The `<% %>` tags only run in Obsidian, so fill every field by hand.
-3. Front matter: `title`, `date`, `modified_date` (format `Saturday 24th October 2026 18:40:00`), `summary`, `tags` (`changelog` and the component), and `hide` with `navigation` and `toc`.
-4. Heading: `# Unreleased - YYYY-MM-DD`. Use a version only once the component has a tagged release.
+3. Front matter: `title` (the ID and a short title, such as `261029-B Command Handoffs`), `date`, `modified_date` (format `Saturday 24th October 2026 18:40:00`), `summary`, `tags` (`changelog` and the component), and `hide` with `navigation` and `toc`.
+4. Heading: the same text as `title`. The Summary states the full date and `Unreleased`. Use a version there only once the component has a tagged release.
 5. Fill Summary, Key Points, Added, Changed/Refactored, Fixed, and optionally Removed and Builds. Delete empty optional sections. Name the files, endpoints, or contracts involved.
 6. Update that component's section in `apps/docs/vault/changelog.md`: replace the Latest link and the summary beneath it with the new entry.
 7. Update the component `index.md` or a project-wide page if the change affects what it states (contracts, endpoints, screens, commands, data policy).
@@ -71,5 +76,7 @@ The docs app is a standalone `uv` project (Python 3.14+), not a member of the ro
 | Changelog added but root `changelog.md` not updated | Update the component's Latest link and summary |
 | Planned endpoint or screen described as available | Confirm in code, otherwise label it planned |
 | Version number invented | Use `Unreleased` |
+| Changelog letter restarted per component | Count letters per date across all components, so IDs stay unique |
+| New page added for a topic an existing page covers | Add a section to that page |
 | Entry filed under the wrong component | Use the Pick the Component table |
 | Copied the template with `<% %>` tags left in | Replace every tag by hand |

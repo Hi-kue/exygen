@@ -32,6 +32,7 @@ By combining traceable document extraction with explicit validation boundaries i
     - [Monorepo Layout](#monorepo-layout)
     - [Applications](#applications)
   - [Installation](#installation)
+    - [Make Commands](#make-commands)
     - [Common Nx Commands](#common-nx-commands)
     - [Workspace Scripts (`scripts/`)](#workspace-scripts-scripts)
   - [Documentation](#documentation)
@@ -103,6 +104,33 @@ cd exygen
 pnpm install
 uv sync --all-packages
 ```
+
+### Make Commands
+
+The root `Makefile` wraps the workspace scripts and Nx targets. It needs GNU Make, which Windows does not include (`winget install ezwinports.make`). It calls `scripts/*.sh` on Linux and macOS, and `scripts/win/*.ps1` on Windows.
+
+```bash
+# List every command
+make help
+
+# Unblock scripts, write missing .env files, install dependencies
+make setup
+
+# Clean everything, reinstall, build, and run agent, api, and web
+make dev
+
+# Same chain for one app
+make dev-web
+
+# Run without cleaning or building
+make run
+make run APPS="api web"
+
+# Run tests across all projects
+make test
+```
+
+`make dev` deletes `node_modules` and `.venv` on every run and reinstalls them. Use `make run` to restart without that cost. The `tui` commands stop with an error until `apps/tui` exists, and `make migrate` does nothing until Exygen has a database.
 
 ### Common Nx Commands
 
@@ -189,7 +217,7 @@ scripts\win\clean.cmd --dry-run
 >
 > [`.agents/index.md`](./.agents/index.md)
 >
-> The docs site in [`apps/docs`](./apps/docs) holds the architecture overview, data policy, evaluation results, and per-component changelogs (`apps/docs/vault`). Several of these pages are still stubs. Agents and contributors update them by following [`.agents/skills/docs/SKILL.md`](./.agents/skills/docs/SKILL.md).
+> The docs site in [`apps/docs`](./apps/docs) holds the architecture overview and planned deployment, data policy, evaluation results, and per-component changelogs (`apps/docs/vault`). Several of these pages are still stubs. Agents and contributors update them by following [`.agents/skills/docs/SKILL.md`](./.agents/skills/docs/SKILL.md).
 
 The internal blueprint for Exygen is categorized within the [`.agents`](./.agents) directory. If you are looking for information regarding the six-stage agent workflow, minimum Pydantic/TypeScript data contracts, or evaluation criteria, start there.
 
@@ -200,7 +228,9 @@ Local development requires the following tools installed and available on your `
 - **Node.js 22+** and **pnpm**
 - **Python 3.12+** and **uv**
 
-> **TODO**: Write proper information about the production infrastructure requirements for the Exygen API and web studio, as well as minimum specs for local or hosted LLM providers and OCR document parsing.
+Production infrastructure is planned but not deployed. See the [Deployment section](./apps/docs/vault/architecture.md#deployment) of the architecture page for the planned Cloudflare Workers and Xen Orchestra topology.
+
+> **TODO**: Write minimum specs for local or hosted LLM providers and OCR document parsing.
 
 ## Contact/Socials for Exygen
 

@@ -1,3 +1,9 @@
 {
+	"appDirectory": "src",
+	"$schema": "https://cdn.jsdelivr.net/npm/@tanstack/router-cli/schema.json",
+	"routesDirectory": "./src/routes",
+	"rootDirectory": ".",
+	"generatedRouteTree": "./src/routeTree.gen.ts",
+	"routeFileIgnorePattern": "\\.(test|spec)\\.[jt]sx?$",
 	"target": "react"
 }
