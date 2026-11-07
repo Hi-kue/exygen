@@ -41,6 +41,21 @@ pnpm nx run agent:check
 
 ## Deployment
 
+### Docker CLI
+
+Build from the workspace root, then run the deterministic demo on demand:
+
+```bash
+docker build -f apps/agent/Dockerfile -t exygen-agent .
+docker run --rm exygen-agent
+```
+
+The image runs `exygen-agent` as a non-root user. It is a one-off CLI with no listening port or server health check. Arguments after the image name are passed to the CLI. For example, mount an authorized document directory at `/data` and pass `run /data/exam.pdf --course COMP-251 --permission authorized`. Supply provider credentials at runtime with `--env-file apps/agent/.env` when needed; environment files are not copied into the image. Document parsing may download models on its first run; `/home/exygen/.cache` can be mounted for persistent caching.
+
+Both Python Dockerfiles use the root build context, frozen `uv.lock` dependencies, and non-editable package installs. The current lock includes large document-processing and CUDA dependencies; these are retained as locked. `--no-dev` excludes dependency groups, but packages also declared as runtime dependencies remain installed. Building an image does not start it; Compose startup selection is configured separately.
+
+### Planned production deployment
+
 The agent package is planned to run inside the API container on `api-01`, with no host of its own. This is not deployed yet. See [Deployment](../architecture.md#deployment).
 
 ## Changelog

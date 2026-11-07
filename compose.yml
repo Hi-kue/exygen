@@ -1,0 +1,145 @@
+# README
+# *=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*
+# This compose file defines the required services for
+# Exygen. Exygen is a multi-agent application that
+# transforms authorized historical Computer Science
+# exams and course materials into original,
+# instructor-style practice exams.
+#
+# To understand the configuration, refer to each
+# service's Dockerfile. As for this compose file, the
+# services are defined as follows:
+# 
+# - postgres: Database service for storing exygen
+#             agent metrics, profiles and user data,
+#             alongside any community driven data
+#             (if applicable).             
+# - redis:    Redis service for caching common results
+#             (if applicable).
+# - judge0:   Sandbox code runner service that runs any
+#             arbitrary code that needs to be tested and
+#             and verified.
+
+services:
+  redis:
+    image: redis:latest
+    container_name: exygen-redis
+    restart: unless-stopped
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-exygen-redis-placeholder-pass}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - exygen-net
+
+  postgres:
+    image: postgres:latest
+    container_name: exygen-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-exygen}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-exygen}
+      POSTGRES_DB: ${POSTGRES_DB:-exygen}
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}" ]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+    networks:
+      - exygen-net
+
+  #region judge0
+  judge0:
+    image: judge0/judge0:latest
+    container_name: exygen-sandbox
+    restart: unless-stopped
+    privileged: true
+    ports:
+      - "127.0.0.1:2358:2358"
+    volumes:
+      - ./judge0.conf:/judge0.conf:ro
+    depends_on:
+      judge0-db:
+        condition: service_healthy
+      judge0-redis:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "ruby", "-rsocket", "-e", "Socket.tcp('127.0.0.1',2358,connect_timeout:2) { |s| s.close }"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    networks:
+      - exygen-net
+
+  judge0-worker:
+    image: judge0/judge0:latest
+    container_name: exygen-sandbox-worker
+    restart: unless-stopped
+    privileged: true
+    command: ["./scripts/workers"]
+    volumes:
+      - ./judge0.conf:/judge0.conf:ro
+    depends_on:
+      judge0-db:
+        condition: service_healthy
+      judge0-redis:
+        condition: service_healthy
+    networks:
+      - exygen-net
+
+  judge0-db:
+    image: postgres:latest
+    container_name: exygen-sandbox-db
+    restart: unless-stopped
+    env_file:
+      - ./judge0.conf
+    volumes:
+      - judge0-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}" ]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+    networks:
+      - exygen-net
+
+  judge0-redis:
+    image: redis:7.2.4
+    container_name: exygen-sandbox-redis
+    restart: unless-stopped
+    env_file:
+      - ./judge0.conf
+    command: ["bash", "-c", "'exec docker-entrypoint.s --appendonly no --requirepass '$$REDIS_PASSWORD'"]
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a '$$REDIS_PASSWORD' --no-auth-warning ping | grep -q PONG" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - exygen-net
+
+    #endregion
+
+networks:
+  exygen-net:
+    driver: bridge
+
+volumes:
+  redis_data: # redis_data: {}?
+    driver: local
+  postgres_data: # postgres_data: {}?
+    driver: local
+  daytona_data: # daytona_data: {}?
+    driver: local
+  judge0-data: # judge0-data: {}?
+    driver: local

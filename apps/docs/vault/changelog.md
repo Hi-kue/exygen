@@ -33,7 +33,9 @@ Each component keeps its own `changelogs/` folder with one file per release or b
 ## Agent
 
 - **Source**: `apps/agent`, the Python multi-agent pipeline and Pydantic contracts.
-- **Latest**: [261103-B Single Exygen Graph](agent/changelogs/261103-B-exygen-graph.md)
+- **Latest**: [261107-A Agent Docker Image](agent/changelogs/261107-A-docker-image.md)
+- **Latest change**: Add a non-root, on-demand CLI image using the shared uv lockfile.
+- **Previous**: [261103-B Single Exygen Graph](agent/changelogs/261103-B-exygen-graph.md)
 - **Earlier today**: [261103-A Agent Restructure and Classifier](agent/changelogs/261103-A-agent-restructure.md)
 
 ### [Unreleased] - 261103-A, 261103-B
@@ -58,7 +60,8 @@ Each component keeps its own `changelogs/` folder with one file per release or b
 ## API
 
 - **Source**: `apps/api`, the FastAPI service.
-- **Latest**: No entries yet.
+- **Latest**: [261107-B API Docker Image](api/changelogs/261107-B-docker-image.md)
+- **Latest change**: Add the API image and health check; fix the source package layout and agent import.
 
 ---
 
@@ -72,7 +75,9 @@ Each component keeps its own `changelogs/` folder with one file per release or b
 ## Platform
 
 - **Source**: Monorepo configuration (Nx, uv, pnpm), root scripts, and `apps/docs`.
-- **Latest**: [261101-C Docs Reorganization](platform/changelogs/261101-C-docs-reorganization.md)
+- **Latest**: [261107-C Container Dependency Inventory](platform/changelogs/261107-C-container-inventory.md)
+- **Latest change**: Record container tooling provenance and outstanding image license checks.
+- **Previous**: [261101-C Docs Reorganization](platform/changelogs/261101-C-docs-reorganization.md)
 - **Earlier today**: [261101-B Deployment Architecture](platform/changelogs/261101-B-deployment-architecture.md), [261101-A Makefile](platform/changelogs/261101-A-makefile.md)
 
 ### [Unreleased] - 261101-A, 261101-B, 261101-C
