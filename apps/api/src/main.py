@@ -2,12 +2,7 @@ from __future__ import annotations
 
 from uuid import uuid4
 
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import PlainTextResponse
-from pydantic import BaseModel, Field
-
-from exygen_agent import (
+from agent.src import (
     AssembledExam,
     ExamGenerationRequest,
     ExamPipelineOrchestrator,
@@ -16,6 +11,10 @@ from exygen_agent import (
     StyleProfile,
     default_synthetic_documents,
 )
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import PlainTextResponse
+from pydantic import BaseModel, Field
 
 
 class CreateProfileRequest(BaseModel):
@@ -104,7 +103,9 @@ def create_profile(payload: CreateProfileRequest) -> StyleProfile:
     for doc_id in payload.document_ids:
         exam = store.extracted_exams.get(doc_id)
         if exam is None:
-            raise HTTPException(status_code=404, detail=f"Document '{doc_id}' not found.")
+            raise HTTPException(
+                status_code=404, detail=f"Document '{doc_id}' not found."
+            )
         selected_exams.append(exam)
 
     profile_id = f"profile-{uuid4().hex[:8]}"

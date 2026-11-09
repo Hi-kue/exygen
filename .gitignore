@@ -85,3 +85,4 @@ lerna-debug.log*
 # Other
 tmp/
 docs/superpowers/*
+judge0.conf

@@ -128,10 +128,10 @@ The plan starts from the repository as it is today. These gaps must close before
 
 | Area | What exists today | Needed for this plan |
 | --- | --- | --- |
-| API packaging | `apps/api/project.json`, `apps/api/pyproject.toml`, and `apps/api/tests/test_api.py` expect a package at `apps/api/src/exygen_api`. The code is at `apps/api/src/main.py`, and it imports `exygen_agent`, while the agent wheel packages `src`. Collecting `apps/api/tests` fails with `ModuleNotFoundError` | An importable API entry point that `api:serve` can start |
+| API packaging | Sources now live at `apps/api/src/exygen_api`, matching the wheel, Nx targets, and test import. The API imports the agent's `src` exports, and its built wheel contains `exygen_api/main.py`. Container runtime verification is still pending | Verify the API container and its `/health` endpoint |
 | API container | No Dockerfile | A container image for `apps/api` that includes `apps/agent` |
-| API state | `InMemoryStore` in `apps/api/src/main.py`. State is lost on restart and is not shared between worker processes, so the API cannot use its vCPUs through multiple workers yet | Persistence in PostgreSQL |
-| API settings | `apps/api/src/settings.py` is empty | Environment-based configuration |
+| API state | `InMemoryStore` in `apps/api/src/exygen_api/main.py`. State is lost on restart and is not shared between worker processes, so the API cannot use its vCPUs through multiple workers yet | Persistence in PostgreSQL |
+| API settings | `apps/api/src/exygen_api/settings.py` is empty | Environment-based configuration |
 | CORS | `allow_origins` is hard-coded to `localhost:3000` and `127.0.0.1:3000` | Allowed origins set per environment |
 | Authentication | None. Every endpoint is open, including those that start paid LLM calls | Authentication and rate limits before public exposure |
 | Exam generation | `POST /api/exams` runs the whole pipeline inside the request | A request model that fits [Cloudflare's limits](#cloudflare-limits) |
