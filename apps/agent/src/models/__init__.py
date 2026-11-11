@@ -1,15 +1,15 @@
-from exygen_agent.models.generated_question_payload import (
+from src.models.generated_question_payload import (
+    MCQ,
     AuditTrail,
     BlankDetail,
     FillInTheBlanks,
     GeneratedQuestionPayload,
-    MCQ,
 )
 
 __all__ = [
+    "MCQ",
     "AuditTrail",
     "BlankDetail",
     "FillInTheBlanks",
     "GeneratedQuestionPayload",
-    "MCQ",
 ]

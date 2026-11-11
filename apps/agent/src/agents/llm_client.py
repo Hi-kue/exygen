@@ -266,6 +266,33 @@ def get_vision_model() -> BaseChatModel | None:
     )
 
 
+def complete_text(
+    llm: BaseChatModel,
+    prompt: str,
+    system_prompt: str,
+) -> str:
+    """Run one system + user completion on a chat model and return its text.
+
+    The sandbox steps ask for a single answer, with no tools and no history, so they
+    use this instead of building an agent graph.
+
+    Args:
+        llm: The chat model that performs the completion.
+        prompt: The user prompt.
+        system_prompt: The system prompt.
+
+    Returns:
+        The text of the model's reply.
+    """
+    reply = llm.invoke(
+        [
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=prompt),
+        ]
+    )
+    return reply.text
+
+
 def create_llm_agent(
     *,
     name: str,

@@ -2,7 +2,7 @@
 robots: noindex, nofollow
 title: Changelogs
 date: Saturday 24th October 2026 18:40:00
-modified_date: Tuesday 3rd November 2026 12:40:00
+modified_date: Wednesday 11th November 2026 12:00:00
 summary: Root changelog index for Exygen, listing the latest entry for each component (agent, api, web, platform).
 status: new
 is_index?: true
@@ -33,7 +33,13 @@ Each component keeps its own `changelogs/` folder with one file per release or b
 ## Agent
 
 - **Source**: `apps/agent`, the Python multi-agent pipeline and Pydantic contracts.
-- **Latest**: [2026-11-08-changelog-judge0-sandbox](agent/changelogs/2026-11-08-changelog-judge0-sandbox.md)
+- **Latest**: [261111-A-import-repair](agent/changelogs/261111-A-import-repair.md)
+
+### [Unreleased] - 2026-11-11
+
+#### Fixed
+
+`import src` works again: the committed conflict markers in `src/__init__.py` are gone, the circular import through `BaseLLMClient` is removed, and `settings.py` again declares the `cloudflare`, `docling`, classifier, vision, and Clef groups that the clients read. The sandbox code moved to `src/agents/sandbox/`, and every module imports as `src.<module>`.
 
 ### [Unreleased] - 2026-11-08
 

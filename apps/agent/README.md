@@ -13,36 +13,45 @@ Exygen operates in 4 stages across the pipeline:
 3. **Stage 3 — LangGraph Synthesis Loop (Agent 2 & Agent 3)**: Iterates slot-by-slot (1 question per cycle). Agent 2 (`QuestionSynthesizerAgent`) synthesizes an original question anchored to the exemplar; Agent 3 (`CriticAgent`) verifies correctness, solvability, and style alignment. Rejected or malformed drafts loop back to Agent 2 with working-memory feedback for up to `max_attempts = 3`.
 4. **Stage 4 — Assembly & Provenance (UI & Export)**: Packages the verified questions, answer keys/explanations, and professor style alignment audit trace for the web studio and PDF/Markdown export.
 
-### Stage 3 LangGraph State Machine
+### Pipeline Graph
 
 ```mermaid
 flowchart LR
-    Input["BlueprintSlot + AnchorQuestion"] --> Start((START))
-    Start --> Synth["node_synthesizer<br/>(Agent 2: QuestionSynthesizerAgent)"]
-    Synth --> RouteSynth{"route_after_synthesizer"}
-    RouteSynth -->|"Valid Markdown parsed"| Critic["node_critic<br/>(Agent 3: CriticAgent)"]
-    RouteSynth -->|"MarkdownParseError<br/>and attempt <= max_attempts (3)"| Synth
-    RouteSynth -->|"MarkdownParseError<br/>and attempt > max_attempts"| End((END))
-    Critic --> Decide{"decide_next_step"}
-    Decide -->|"accepted == True"| End
-    Decide -->|"accepted == False<br/>and attempt <= max_attempts (3)"| Synth
-    Decide -->|"attempt > max_attempts"| End
+    Start((START)) --> Entry["entry"]
+    Entry -->|"source_path"| Ingest["ingest"]
+    Entry -->|"document"| Structure["structure"]
+    Entry -->|"blueprint"| Synth
+    Ingest --> Structure
+    Structure --> Classifier["classifier (Agent 1)"]
+    Classifier --> Planner["planner"]
+    Planner --> Synth["synthesizer (Agent 2)"]
+    Synth --> Critic["critic (Agent 3)"]
+    Critic -->|"rejected, attempts left"| Synth
+    Critic -->|"accepted, unverified, or attempts exhausted"| NextSlot{"more slots?"}
+    NextSlot -->|"yes"| Synth
+    NextSlot -->|"no"| End((END))
 ```
+
+Every node returns a `Command` naming the next node, so the graph has a single static edge from `START` and no conditional edges.
 
 ---
 
-## 2. Python Module Reference (`src/exygen_agent/`)
+## 2. Python Module Reference (`src/`)
 
 | File | Responsibility | Key Classes & Functions |
 | :--- | :--- | :--- |
-| [`synthesis_contracts.py`](./src/exygen_agent/synthesis_contracts.py) | Typed Pydantic v2 schemas for Stage 1–3 boundaries and Markdown section extraction | `AnchorQuestion`, `BlueprintSlot`, `ExamBlueprintWithSlots`, `SynthesizedQuestion`, `CriticEvaluation`, `CriticFeedback`, `MarkdownParseError`, `extract_markdown_sections()` |
-| [`llm_client.py`](./src/exygen_agent/llm_client.py) | OpenRouter LLM client (via OpenAI SDK, configured from `settings.py`) and deterministic mock fallback | `BaseLLMClient`, `OpenRouterClient`, `MockLLMClient`, `get_llm_client()` |
-| [`settings.py`](./src/exygen_agent/settings.py) | Typed environment configuration (`APP_*`, `AGENT_*`, `LANGFUSE_*`) loaded from the process environment and `apps/agent/.env`; see [`.env.sample`](./.env.sample) | `Settings`, `AgentSettings`, `LangfuseSettings`, `get_settings()`, `settings` |
-| [`synthesizer.py`](./src/exygen_agent/synthesizer.py) | **Agent 2 (Question Synthesizer)**: Exemplar-anchored prompt builder and Markdown-to-object parser | `QuestionSynthesizerAgent`, `build_synthesis_prompt()`, `parse_synthesized_markdown()` |
-| [`critic.py`](./src/exygen_agent/critic.py) | **Agent 3 (Critic Interface)**: Academic verification prompt builder and flexible verdict parser | `CriticAgent`, `build_critic_prompt()`, `parse_critic_markdown()` |
-| [`synthesis_graph.py`](./src/exygen_agent/synthesis_graph.py) | **LangGraph State Machine**: Slot-by-slot retry orchestration and working-memory feedback injection | `SlotSynthesisState`, `create_slot_synthesis_graph()`, `run_slot_synthesis()`, `synthesize_exam_slots()` |
-| [`contracts.py`](./src/exygen_agent/contracts.py) | General pipeline contracts consumed by `apps/api` | `SourceDocument`, `ExtractedExam`, `StyleProfile`, `ExamBlueprint`, `GeneratedQuestion`, `ValidationReport`, `AssembledExam` |
-| [`orchestrator.py`](./src/exygen_agent/orchestrator.py) | High-level pipeline coordinator and offline synthetic fixtures | `ExamPipelineOrchestrator`, `default_synthetic_documents()` |
+| [`schemas.py`](./src/agents/schemas.py) | Typed Pydantic v2 schemas for the agent boundaries, the graph state, and Markdown section extraction | `AnchorQuestion`, `BlueprintSlot`, `ExamBlueprintWithSlots`, `SynthesizedQuestion`, `CriticEvaluation`, `CriticFeedback`, `ExygenState`, `MarkdownParseError`, `extract_markdown_sections()` |
+| [`llm_client.py`](./src/agents/llm_client.py) | Chat model factory (OpenRouter via LangChain, configured from `settings.py`) and deterministic mock fallback | `MockLLMClient`, `get_chat_model()`, `get_vision_model()`, `create_llm_agent()`, `invoke_llm_agent()`, `complete_text()` |
+| [`settings.py`](./src/settings.py) | Typed environment configuration (`APP_*`, `AGENT_*`, `LANGFUSE_*`, `JUDGE0_*`) loaded from the process environment and `apps/agent/.env`; see [`.env.sample`](./.env.sample) | `Settings`, `AgentSettings`, `LangfuseSettings`, `Judge0Settings`, `get_settings()`, `settings` |
+| [`classifier/base.py`](./src/agents/classifier/base.py) | **Stage 1 (Classifier)**: tags each extracted question with format, topic, marks, archetype and difficulty | `ClassifierAgent`, `source_document_from_extraction()` |
+| [`planner/base.py`](./src/agents/planner/base.py) | **Stage 2 (Planner)**: turns the tagged anchors into a slot blueprint, deterministically | `ExamPlanner` |
+| [`synthesizer/base.py`](./src/agents/synthesizer/base.py) | **Agent 2 (Question Synthesizer)**: exemplar-anchored prompt builder and Markdown-to-object parser | `QuestionSynthesizerAgent`, `build_synthesis_prompt()`, `parse_synthesized_markdown()` |
+| [`critic/base.py`](./src/agents/critic/base.py) | **Agent 3 (Critic)**: academic verification prompt builder and flexible verdict parser | `CriticAgent`, `build_critic_prompt()`, `parse_critic_markdown()` |
+| [`graph.py`](./src/agents/graph.py) | **The one LangGraph**: entry → ingest → structure → classifier → planner → synthesizer ⇄ critic, plus the slot-loop runners | `create_exygen_graph()`, `run_exygen()`, `run_classifier()`, `run_slot_synthesis()`, `synthesize_exam_slots()` |
+| [`nodes/`](./src/agents/nodes/) | The graph's nodes, one file per stage | `entry_node`, `create_ingest_node()`, `create_structure_node()`, `create_classifier_node()`, `create_planner_node()`, `create_synthesizer_node()`, `create_critic_node()` |
+| [`sandbox/`](./src/agents/sandbox/) | Code execution step: prepares runnable code from a question and runs it through Judge0 | `CodeSandboxAgent`, `CodeSandboxResult`, `Judge0Service`, `SandboxExecutionResult` |
+| [`orchestrator.py`](./src/orchestrator.py) | Deterministic pipeline coordinator and offline synthetic fixtures | `ExamPipelineOrchestrator`, `default_synthetic_documents()` |
+| [`schemas/`](./src/schemas/) | General pipeline contracts consumed by `apps/api` | `SourceDocument`, `ExtractedExam`, `StyleProfile`, `ExamBlueprint`, `GeneratedQuestion`, `ValidationReport`, `AssembledExam` |
 
 ---
 
@@ -75,14 +84,23 @@ To prevent code indentation and LaTeX math (such as `$O(n \log n)$`) from breaki
 
 ## 4. Running Tests & Linting
 
+The agent requires Python 3.12+ (see [`.python-version`](./.python-version)).
+
 From the repository root:
 
 ```powershell
 # Run all unit and integration tests in apps/agent/tests/
-.\.venv\Scripts\pytest.exe apps/agent/tests
+uv run pytest apps/agent/tests
 
 # Run Ruff linter
-.\.venv\Scripts\ruff.exe check apps/agent
+uv run ruff check apps/agent
+```
+
+The offline Synthesizer → Critic → code sandbox demo runs without credentials:
+
+```powershell
+cd apps/agent
+python -m src.mock
 ```
 
 Test suites:

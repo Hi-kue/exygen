@@ -25,7 +25,7 @@ exygen-api = { workspace = true }
 
 [tool.pytest.ini_options]
 testpaths = ["apps/agent/tests", "apps/api/tests"]
-pythonpath = ["apps/agent/src", "apps/api/src"]
+pythonpath = ["apps/agent", "apps/api"]
 
 [tool.ruff]
 target-version = "py312"

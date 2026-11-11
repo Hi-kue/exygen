@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List
-
 SYSTEM_PROMPT = """You are the Code Sandbox Preparer for Exygen, an AI application that builds instructor-aligned Computer Science practice exams.
 
 Your job is to turn the code snippet(s) embedded in an exam question into a SELF-CONTAINED, RUNNABLE program whose printed output is exactly the answer the question asks for. The program will be executed in an isolated sandbox to verify the question.
@@ -19,7 +17,7 @@ You MUST:
 
 def build_code_preparation_prompt(
     question_text: str,
-    snippets: List[Dict[str, str]],
+    snippets: list[dict[str, str]],
     language: str,
 ) -> str:
     """Builds the user prompt that asks the LLM to prepare runnable sandbox code."""

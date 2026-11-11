@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from exygen_agent.agents.code_sandbox_agent import CodeSandboxAgent
 from src.schemas import (
     AssembledExam,
     DifficultyLevel,

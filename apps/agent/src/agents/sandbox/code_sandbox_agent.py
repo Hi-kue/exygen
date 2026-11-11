@@ -1,21 +1,26 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict, List
 
-from exygen_agent.sandbox.code_parsing import extract_single_code_block, parse_files
-from exygen_agent.sandbox.code_preparation import SYSTEM_PROMPT, build_code_preparation_prompt
-from exygen_agent.sandbox.code_sandbox_result import CodeSandboxResult
-from exygen_agent.sandbox.language_resolution import resolve_language
-from exygen_agent.sandbox.sandbox_result import SandboxExecutionResult
-from exygen_agent.sandbox.validation_code import (
+from langchain_core.language_models.chat_models import BaseChatModel
+
+from src.agents.llm_client import complete_text, get_chat_model
+from src.agents.sandbox.code_executor import execute_in_sandbox
+from src.agents.sandbox.code_parsing import extract_single_code_block, parse_files
+from src.agents.sandbox.code_preparation import (
+    SYSTEM_PROMPT,
+    build_code_preparation_prompt,
+)
+from src.agents.sandbox.code_sandbox_result import CodeSandboxResult
+from src.agents.sandbox.language_resolution import resolve_language
+from src.agents.sandbox.sandbox_result import SandboxExecutionResult
+from src.agents.sandbox.utils import extract_code_snippets
+from src.agents.sandbox.validation_code import (
     VALIDATION_CODE_SYSTEM_PROMPT,
     build_validation_code_prompt,
     is_not_code_validatable,
 )
-from exygen_agent.sandbox.code_executor import execute_in_sandbox
-from exygen_agent.llm_client import BaseLLMClient, get_llm_client
-from exygen_agent.synthesis_contracts import SynthesizedQuestion
+from src.agents.schemas import SynthesizedQuestion
 
 DEFAULT_LANGUAGE = "python"
 
@@ -38,11 +43,9 @@ class CodeSandboxAgent:
 
     def __init__(
         self,
-        llm_client: BaseLLMClient | None = None,
-        model: str | None = None,
+        llm: BaseChatModel | None = None,
     ) -> None:
-        self.llm_client = llm_client or get_llm_client()
-        self.model = model
+        self.llm = llm or get_chat_model()
 
     def prepare_and_execute(self, question: SynthesizedQuestion) -> CodeSandboxResult:
         """Extract snippets, prepare runnable code with the LLM, and execute it."""
@@ -55,10 +58,10 @@ class CodeSandboxAgent:
         # No embedded snippets: decide whether the output is code-validatable
         # and, if so, generate Python validation code.
         language = DEFAULT_LANGUAGE
-        response_text = self.llm_client.complete(
+        response_text = complete_text(
+            self.llm,
             prompt=build_validation_code_prompt(prompt_text),
             system_prompt=VALIDATION_CODE_SYSTEM_PROMPT,
-            model=self.model,
         )
 
         if is_not_code_validatable(response_text):
@@ -120,16 +123,18 @@ class CodeSandboxAgent:
         )
 
     def _prepare_from_snippets(
-        self, prompt_text: str, snippets: List[Dict[str, str]]
+        self, prompt_text: str, snippets: list[dict[str, str]]
     ) -> CodeSandboxResult:
         resolved = [resolve_language(snippet) for snippet in snippets]
         language = self._primary_language(resolved) or "text"
 
-        preparation_prompt = build_code_preparation_prompt(prompt_text, snippets, language)
-        response_text = self.llm_client.complete(
+        preparation_prompt = build_code_preparation_prompt(
+            prompt_text, snippets, language
+        )
+        response_text = complete_text(
+            self.llm,
             prompt=preparation_prompt,
             system_prompt=SYSTEM_PROMPT,
-            model=self.model,
         )
         code_block = extract_single_code_block(response_text)
         files = parse_files(code_block, language)
@@ -167,12 +172,14 @@ class CodeSandboxAgent:
         )
 
     @staticmethod
-    def _primary_language(resolved: List[str]) -> str:
+    def _primary_language(resolved: list[str]) -> str:
         """Picks the dominant language resolved from the snippets."""
-        non_trivial = [lang for lang in resolved if lang and lang not in {"pseudocode", "text"}]
+        non_trivial = [
+            lang for lang in resolved if lang and lang not in {"pseudocode", "text"}
+        ]
         if not non_trivial:
             return resolved[0] if resolved else DEFAULT_LANGUAGE
-        counts: Dict[str, int] = {}
+        counts: dict[str, int] = {}
         for lang in non_trivial:
             counts[lang] = counts.get(lang, 0) + 1
         return max(counts, key=counts.get)
@@ -181,7 +188,7 @@ class CodeSandboxAgent:
     def _log_execution_result(
         language: str,
         execution: SandboxExecutionResult,
-        files: Dict[str, str] | None = None,
+        files: dict[str, str] | None = None,
     ) -> None:
         """Prints the code execution result to the console. For debugging purposes mostly."""
         status = "success" if execution.is_success else "failure"
@@ -208,8 +215,6 @@ class CodeSandboxAgent:
         print("=" * 60)
 
     @staticmethod
-    def _extract_snippets(prompt_text: str) -> List[Dict[str, str]]:
+    def _extract_snippets(prompt_text: str) -> list[dict[str, str]]:
         """Extract code snippets from the prompt text."""
-        from exygen_agent.sandbox.utils import extract_code_snippets
-
         return extract_code_snippets(prompt_text)

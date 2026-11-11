@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, Optional
 
 # Marker the code-preparer LLM uses to delimit multiple files inside a single
 # fenced code block, e.g. `## FILE: Main.java`. Character class avoids `\s`
@@ -18,7 +17,7 @@ DEFAULT_FILENAMES = {
 DEFAULT_FILENAME = "solution.txt"
 
 
-def extract_single_code_block(text: Optional[str]) -> Optional[str]:
+def extract_single_code_block(text: str | None) -> str | None:
     """Returns the contents of the first fenced code block in an LLM response."""
     if not text:
         return None
@@ -28,7 +27,7 @@ def extract_single_code_block(text: Optional[str]) -> Optional[str]:
     return match.group(1).strip()
 
 
-def parse_files(code_block: Optional[str], language: str) -> Dict[str, str]:
+def parse_files(code_block: str | None, language: str) -> dict[str, str]:
     """Splits a prepared program into a filename -> content map.
 
     Files are delimited by `## FILE: <filename>` lines. Without markers the
@@ -42,7 +41,7 @@ def parse_files(code_block: Optional[str], language: str) -> Dict[str, str]:
     if len(parts) == 1:
         return {default_name: parts[0].strip()}
 
-    files: Dict[str, str] = {}
+    files: dict[str, str] = {}
     if parts[0].strip():
         files[default_name] = parts[0].strip()
 

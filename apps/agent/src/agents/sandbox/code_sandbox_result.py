@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Literal, Optional
+from typing import Any, Literal
 
 from pydantic import BaseModel
 
@@ -14,16 +14,16 @@ class CodeSandboxResult(BaseModel):
     """
 
     skipped: bool = False
-    language: Optional[str] = None
+    language: str | None = None
     status: Literal["PASS", "FAIL", "SKIPPED"] = "SKIPPED"
-    output: Optional[str] = None
-    error: Optional[str] = None
-    files: Optional[Dict[str, str]] = None
-    prepared_code: Optional[str] = None
+    output: str | None = None
+    error: str | None = None
+    files: dict[str, str] | None = None
+    prepared_code: str | None = None
     needs_regeneration: bool = False
-    notes: Optional[str] = None
+    notes: str | None = None
 
-    def model_dump_for_logging(self) -> Dict[str, Any]:
+    def model_dump_for_logging(self) -> dict[str, Any]:
         """Return a logging-friendly dict excluding large code payloads."""
         return {
             "skipped": self.skipped,

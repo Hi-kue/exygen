@@ -4,14 +4,17 @@ import base64
 import io
 import json
 import zipfile
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 import httpx
 
-from exygen_agent.sandbox.judge0_service import Judge0Service
+from src.agents.sandbox.judge0_service import Judge0Service
 
 
-def _service(handler: Callable[[httpx.Request], httpx.Response], **kwargs: Any) -> Judge0Service:
+def _service(
+    handler: Callable[[httpx.Request], httpx.Response], **kwargs: Any
+) -> Judge0Service:
     client = httpx.Client(
         base_url="http://judge0.test",
         transport=httpx.MockTransport(handler),
@@ -170,7 +173,10 @@ def test_java_missing_main_file_is_rejected_before_request() -> None:
 
     result = _service(handler).execute(
         language="java",
-        files={"Cast.java": "public class Cast {}", "Droid.java": "public class Droid {}"},
+        files={
+            "Cast.java": "public class Cast {}",
+            "Droid.java": "public class Droid {}",
+        },
     )
 
     assert result.is_success is False

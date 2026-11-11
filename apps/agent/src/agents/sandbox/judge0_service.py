@@ -4,12 +4,12 @@ import base64
 import io
 import re
 import zipfile
-from typing import Any, Optional
+from typing import Any
 
 import httpx
 
-from exygen_agent.sandbox.sandbox_result import SandboxExecutionResult
-from exygen_agent.settings import Judge0Settings, get_settings
+from src.agents.sandbox.sandbox_result import SandboxExecutionResult
+from src.settings import Judge0Settings, get_settings
 
 # Centralized language -> Judge0 configuration.
 # Language IDs come from Judge0 v1.13.1 `db/languages/active.rb`.
@@ -64,7 +64,7 @@ class Judge0Service:
         self._client = client
 
     @classmethod
-    def from_settings(cls, cfg: Judge0Settings) -> "Judge0Service":
+    def from_settings(cls, cfg: Judge0Settings) -> Judge0Service:
         """Build a service from a `Judge0Settings` group (`JUDGE0_*`)."""
         return cls(
             api_url=cfg.api_url,
@@ -75,7 +75,7 @@ class Judge0Service:
         )
 
     @classmethod
-    def from_env(cls) -> "Judge0Service":
+    def from_env(cls) -> Judge0Service:
         """Build a service from the application settings (`JUDGE0_*`)."""
         return cls.from_settings(get_settings().judge0)
 
@@ -83,8 +83,8 @@ class Judge0Service:
         self,
         executable_code: str = "",
         language: str = "",
-        timeout_seconds: Optional[int] = None,
-        files: Optional[dict[str, str]] = None,
+        timeout_seconds: int | None = None,
+        files: dict[str, str] | None = None,
     ) -> SandboxExecutionResult:
         """Execute code through Judge0 and normalize the result.
 
@@ -145,7 +145,7 @@ class Judge0Service:
                 is_success=False,
                 error=f"Judge0 returned an invalid response: {exc}",
             )
-        except Exception as exc:  # pragma: no cover - defensive boundary
+        except Exception as exc:  # ruff: ignore[blind-except] - defensive boundary around Judge0
             return SandboxExecutionResult(
                 is_success=False,
                 error=f"Judge0 infrastructure error: {exc}",
@@ -168,7 +168,7 @@ class Judge0Service:
     def _prepare_sources(
         executable_code: str,
         config: dict[str, Any],
-        files: Optional[dict[str, str]],
+        files: dict[str, str] | None,
     ) -> tuple[str, dict[str, str]] | SandboxExecutionResult:
         if not files:
             return executable_code, {}
@@ -264,7 +264,7 @@ class Judge0Service:
 
 # Module-level default service for simple call sites (e.g. agent code).
 # Created lazily so importing the package does not require a running Judge0.
-_default_service: Optional[Judge0Service] = None
+_default_service: Judge0Service | None = None
 
 
 def _get_default_service() -> Judge0Service:
@@ -278,7 +278,7 @@ def execute_in_sandbox(
     executable_code: str = "",
     language: str = "",
     timeout_seconds: int = DEFAULT_TIMEOUT_SECONDS,
-    files: Optional[dict[str, str]] = None,
+    files: dict[str, str] | None = None,
 ) -> SandboxExecutionResult:
     """Execute code through Judge0 using the module-level default service."""
     return _get_default_service().execute(

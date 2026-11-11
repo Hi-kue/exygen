@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional
-
 from pygments.lexers import guess_lexer
 from pygments.util import ClassNotFound
 

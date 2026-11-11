@@ -1,7 +1,7 @@
 ---
 title: Reference
 date: Wednesday 28th October 2026 07:34:00
-modified_date: Tuesday 3rd November 2026 12:40:00
+modified_date: Wednesday 11th November 2026 12:00:00
 summary: Reference for the exygen-agent package, covering Python modules, data contracts, the LLM client, external clients, tracing, settings, the command line, the orchestrator, and tests.
 tags:
     - agent
@@ -32,6 +32,7 @@ All modules live in `apps/agent/src/` and are imported as `src.<module>`. See [C
 | `agents/synthesizer/base.py`, `prompt.py` | Writes a question for a slot, and parses the Markdown reply | `QuestionSynthesizerAgent`, `build_synthesis_prompt()`, `parse_synthesized_markdown()` | [Synthesizer](pipeline.md#synthesizer) |
 | `agents/critic/base.py`, `prompt.py` | Reviews a draft, and parses the Markdown reply | `CriticAgent`, `build_critic_prompt()`, `parse_critic_markdown()` | [Critic](pipeline.md#critic) |
 | `agents/deterministic.py` | Deterministic fallback agents for the six logical roles, re-exported by `agents/__init__.py` | `ExtractionAgent`, `StyleAnalysisAgent`, `ExamPlanningAgent`, `QuestionGenerationAgent`, `ValidationAgent`, `AssemblyAgent` | [Orchestrator](#orchestrator) |
+| `agents/sandbox/` | The code execution step: prepares runnable files from a question and runs them through Judge0. No graph node calls it yet | `CodeSandboxAgent`, `CodeSandboxResult`, `Judge0Service`, `SandboxExecutionResult`, `execute_in_sandbox()` | [Code Execution Sandbox](index.md#code-execution-sandbox) |
 | `orchestrator.py` | Coordinator for the deterministic agents, and the offline synthetic fixtures | `ExamPipelineOrchestrator`, `default_synthetic_documents()` | [Orchestrator](#orchestrator) |
 | `schemas/document.py`, `exam.py`, `question.py`, `profile.py`, `validation.py`, `general.py` | Typed Pydantic contracts for documents, exams, questions, style profiles, and validation | See [General Pipeline Contracts](#general-pipeline-contracts) | [Contracts](#contracts) |
 | `schemas/clients.py` | Pydantic models and constants shared by the three clients. It must not import Docling | `AgentIdentifier`, `DocumentExtraction`, `PageExtraction`, `ExtractedFigure`, `NoulQuestion`, `ChoiceQuestion`, `ScoreQuestion`, `ClefResult` | [Client Contracts](#client-contracts) |
@@ -255,6 +256,8 @@ uv run ruff format --check apps/agent
 | `tests/test_synthesizer.py` | [Synthesizer](pipeline.md#synthesizer) prompt building, multi-line MCQ parsing, non-MCQ optional headers, and `MarkdownParseError` enforcement |
 | `tests/test_critic.py` | [Critic](pipeline.md#critic) verdicts failing closed, status reconciliation, style score parsing, and code never reaching `verified` |
 | `tests/test_synthesis_graph.py` | The [slot loop](pipeline.md#stage-3-synthesis-loop): retries, format-error reprompting that skips the Critic, attempts running out, and several slots. It also holds the live test |
+| `tests/test_code_sandbox_agent.py` | `CodeSandboxAgent`: snippet extraction, multi-file Java splitting, generated validation code, skipped steps, and execution failures asking for a new draft |
+| `tests/test_judge0_service.py` | `Judge0Service`: the submission payload, the `additional_files` ZIP, status mapping, auth, and HTTP and connection errors, using `httpx.MockTransport` |
 | `tests/test_llm_chat_model.py` | `MockLLMClient`, fresh message histories, and `get_chat_model()` |
 | `tests/test_cli.py` | The `run` command's options and summary, and the demo as the default |
 | `tests/test_langfuse_capture.py` | Prompts and attribution in traces, offline through the real SDK with an in-memory exporter |

@@ -15,7 +15,7 @@ from typing import ClassVar, Literal
 from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# apps/agent/src/exygen_agent/settings.py -> apps/agent/.env, independent of the working directory
+# apps/agent/src/settings.py -> apps/agent/.env, independent of the working directory
 DEFAULT_ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
 
 # Agent Defaults
@@ -24,6 +24,29 @@ AGENT_DEFAULT_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 AGENT_DEFAULT_OPENROUTER_MODEL = "nvidia/nemotron-3-ultra-550b-a55b:free"
 AGENT_DEFAULT_TEMPERATURE = 0.7
 AGENT_DEFAULT_TIMEOUT_SECONDS = 60
+AGENT_DEFAULT_CLASSIFIER_READING_MODE = "auto"
+AGENT_DEFAULT_CLASSIFIER_WHOLE_DOCUMENT_MAX_CHARS = 200_000
+AGENT_DEFAULT_VISION_MODEL = "nvidia/nemotron-3.5-super-vl:free"
+AGENT_DEFAULT_VISION_TIMEOUT_SECONDS = 120
+AGENT_DEFAULT_CLEF_BASE_URL = "https://api.cloudflare.com/client/v4/accounts"
+AGENT_DEFAULT_CLEF_MODEL = "clef"
+AGENT_DEFAULT_CLEF_TIMEOUT_SECONDS = 30
+AGENT_DEFAULT_CLEF_MAX_RETRIES = 2
+AGENT_DEFAULT_CLEF_MIN_QUESTIONS = 1
+AGENT_DEFAULT_CLEF_MAX_QUESTIONS = 64
+
+# Docling Defaults
+DOCLING_DEFAULT_MAX_FILE_SIZE_MB = 25
+DOCLING_DEFAULT_MAX_PAGES = 100
+DOCLING_DEFAULT_DOCUMENT_TIMEOUT_SECONDS = 300
+DOCLING_DEFAULT_OCR_ENABLED = True
+DOCLING_DEFAULT_FORCE_FULL_PAGE_OCR = False
+DOCLING_DEFAULT_OCR_LANGUAGES = ["en"]
+DOCLING_DEFAULT_DO_CODE_ENRICHMENT = False
+DOCLING_DEFAULT_DO_FORMULA_ENRICHMENT = False
+DOCLING_DEFAULT_CAPTURE_FIGURES = True
+DOCLING_DEFAULT_FIGURE_IMAGES_SCALE = 2.0
+DOCLING_DEFAULT_FIGURE_MIN_PIXELS = 32
 
 # RAG Defaults
 RAG_DEFAULT_CHROMA_PERSIST_DIR = "./chroma_db"
@@ -68,6 +91,46 @@ class AgentSettings(BaseSettings):
     )
     timeout_seconds: int = Field(
         default=AGENT_DEFAULT_TIMEOUT_SECONDS, description="LLM request timeout."
+    )
+    classifier_reading_mode: Literal["auto", "whole_document", "per_page"] = Field(
+        default=AGENT_DEFAULT_CLASSIFIER_READING_MODE,
+        description="How the Classifier reads a document: 'auto' decides per document.",
+    )
+    classifier_whole_document_max_chars: int = Field(
+        default=AGENT_DEFAULT_CLASSIFIER_WHOLE_DOCUMENT_MAX_CHARS,
+        description="Longest document that 'auto' reads in one request.",
+    )
+    vision_model: str | None = Field(
+        default=AGENT_DEFAULT_VISION_MODEL,
+        description="OpenRouter model that reads images; it must accept images.",
+    )
+    vision_timeout_seconds: int = Field(
+        default=AGENT_DEFAULT_VISION_TIMEOUT_SECONDS,
+        description="Time allowed for one vision request.",
+    )
+    clef_base_url: str = Field(
+        default=AGENT_DEFAULT_CLEF_BASE_URL,
+        description="Cloudflare Workers AI endpoint the account id and model are appended to.",
+    )
+    clef_model: Literal["clef", "clef-flash"] = Field(
+        default=AGENT_DEFAULT_CLEF_MODEL,
+        description="Clef variant to send requests to.",
+    )
+    clef_timeout_seconds: int = Field(
+        default=AGENT_DEFAULT_CLEF_TIMEOUT_SECONDS,
+        description="Time allowed for one Clef request.",
+    )
+    clef_max_retries: int = Field(
+        default=AGENT_DEFAULT_CLEF_MAX_RETRIES,
+        description="Extra attempts after a transport error, HTTP 429, or HTTP 5xx.",
+    )
+    clef_min_questions: int = Field(
+        default=AGENT_DEFAULT_CLEF_MIN_QUESTIONS,
+        description="Fewest questions accepted in one Clef request.",
+    )
+    clef_max_questions: int = Field(
+        default=AGENT_DEFAULT_CLEF_MAX_QUESTIONS,
+        description="Most questions accepted in one Clef request.",
     )
     rag_chroma_persist_dir: str = Field(
         default=RAG_DEFAULT_CHROMA_PERSIST_DIR, description="ChromaDB persist dir."
@@ -117,6 +180,84 @@ class LangfuseSettings(BaseSettings):
     )
 
 
+class CloudflareSettings(BaseSettings):
+    """Cloudflare Workers AI credentials (`CF_*`)."""
+
+    account_id: str | None = Field(
+        default=None, description="Cloudflare account that Workers AI requests bill to."
+    )
+    auth_token: SecretStr | None = Field(
+        default=None, description="API token with the Workers AI permission."
+    )
+
+    model_config: ClassVar[SettingsConfigDict] = SettingsConfigDict(
+        env_prefix="CF_",
+        env_file=DEFAULT_ENV_FILE,
+        env_ignore_empty=True,
+        extra="ignore",
+    )
+
+
+class DoclingSettings(BaseSettings):
+    """Local document parsing configuration (`DOCLING_*`).
+
+    Parsing is local, so these limits bound the work one upload can cause. OCR is
+    on by default because scanned exams have no text layer.
+    """
+
+    max_file_size_mb: int = Field(
+        default=DOCLING_DEFAULT_MAX_FILE_SIZE_MB,
+        description="Largest upload accepted for parsing.",
+    )
+    max_pages: int = Field(
+        default=DOCLING_DEFAULT_MAX_PAGES,
+        description="Most pages parsed from one document.",
+    )
+    document_timeout_seconds: int = Field(
+        default=DOCLING_DEFAULT_DOCUMENT_TIMEOUT_SECONDS,
+        description="Time allowed to convert one document.",
+    )
+    ocr_enabled: bool = Field(
+        default=DOCLING_DEFAULT_OCR_ENABLED,
+        description="Run OCR on scanned pages and embedded images.",
+    )
+    force_full_page_ocr: bool = Field(
+        default=DOCLING_DEFAULT_FORCE_FULL_PAGE_OCR,
+        description="OCR every page, even ones with a text layer.",
+    )
+    ocr_languages: list[str] = Field(
+        default_factory=lambda: list(DOCLING_DEFAULT_OCR_LANGUAGES),
+        description="PP-OCR language codes; RapidOCR uses only the first.",
+    )
+    do_code_enrichment: bool = Field(
+        default=DOCLING_DEFAULT_DO_CODE_ENRICHMENT,
+        description="Recognize code blocks; downloads an extra model on first use.",
+    )
+    do_formula_enrichment: bool = Field(
+        default=DOCLING_DEFAULT_DO_FORMULA_ENRICHMENT,
+        description="Convert formulas to LaTeX; downloads an extra model on first use.",
+    )
+    capture_figures: bool = Field(
+        default=DOCLING_DEFAULT_CAPTURE_FIGURES,
+        description="Keep figures and pages with almost no text, so they can be read.",
+    )
+    figure_images_scale: float = Field(
+        default=DOCLING_DEFAULT_FIGURE_IMAGES_SCALE,
+        description="Resolution of captured pictures, relative to 72 DPI.",
+    )
+    figure_min_pixels: int = Field(
+        default=DOCLING_DEFAULT_FIGURE_MIN_PIXELS,
+        description="Pictures narrower or shorter than this are dropped as decoration.",
+    )
+
+    model_config: ClassVar[SettingsConfigDict] = SettingsConfigDict(
+        env_prefix="DOCLING_",
+        env_file=DEFAULT_ENV_FILE,
+        env_ignore_empty=True,
+        extra="ignore",
+    )
+
+
 class Judge0Settings(BaseSettings):
     """Judge0 sandbox configuration (`JUDGE0_*`).
 
@@ -150,7 +291,7 @@ class Judge0Settings(BaseSettings):
 
 
 class Settings(BaseSettings):
-    """Main settings (`APP_*`) plus the nested agent, Langfuse and Judge0 groups."""
+    """Main settings (`APP_*`) plus the nested agent, Cloudflare, Docling, Langfuse and Judge0 groups."""
 
     app_env: str = Field(default=DEFAULT_APP_ENV, description="App environment.")
     app_name: str = Field(default=DEFAULT_APP_NAME, description="App name.")
@@ -162,6 +303,8 @@ class Settings(BaseSettings):
     )
 
     agent: AgentSettings = Field(default_factory=AgentSettings)
+    cloudflare: CloudflareSettings = Field(default_factory=CloudflareSettings)
+    docling: DoclingSettings = Field(default_factory=DoclingSettings)
     langfuse: LangfuseSettings = Field(default_factory=LangfuseSettings)
     judge0: Judge0Settings = Field(default_factory=Judge0Settings)
 

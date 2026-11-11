@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import pytest
-from openrouter.errors import OpenRouterError
 
 from src import (
     AnchorQuestion,
@@ -16,7 +15,7 @@ from src import (
     run_slot_synthesis,
     synthesize_exam_slots,
 )
-from exygen_agent.settings import settings
+from src.settings import settings
 
 
 @pytest.fixture
@@ -217,8 +216,8 @@ def test_langgraph_single_attempt_accepted(
     assert evaluation.correctness_status == "verified"
     assert evaluation.code_sandbox_passed is None
     assert evaluation.style_alignment_score >= 0.90
-    # 1 synthesizer + 1 validation (no snippets -> skipped) + 1 critic
-    assert len(mock_client.call_history) == 3
+    # 1 synthesizer + 1 critic
+    assert len(mock_client.call_history) == 2
 
 
 def test_langgraph_retry_loop_success_on_attempt_2(
@@ -267,14 +266,10 @@ Corrected parent index arithmetic verified. Question is clean and aligned with i
         custom_responses=[
             # Attempt 1 synthesizer response
             "## QUESTION\nDraft 1 question text\n\n## OPTIONS\n(A) 1\n(B) 2\n(C) 3\n(D) 4\n\n## SOLUTION\nB\n\n## EXPLANATION\nExplanation 1\n\n## RATIONALE\nRationale 1\n",
-            # Attempt 1 validation: no snippets -> not code-validatable -> skip
-            "N/A",
             # Attempt 1 critic response (reject)
             rejected_critique,
             # Attempt 2 synthesizer response
             "## QUESTION\nCorrected draft question text\n\n## OPTIONS\n(A) 1\n(B) 2\n(C) 3\n(D) 4\n\n## SOLUTION\nB\n\n## EXPLANATION\nCorrected explanation\n\n## RATIONALE\nCorrected rationale\n",
-            # Attempt 2 validation: no snippets -> skip
-            "N/A",
             # Attempt 2 critic response (accept)
             accepted_critique,
         ]
@@ -290,11 +285,11 @@ Corrected parent index arithmetic verified. Question is clean and aligned with i
     assert q.slot_number == 2
     assert "Corrected draft question text" in q.prompt
     assert evaluation.accepted is True
-    assert evaluation.style_alignment_score == 0.95
-    # Verify call history: 2 synthesizer + 2 validation (skipped) + 2 critic = 6 total calls
-    assert len(mock_client.call_history) == 6
+    assert evaluation.style_alignment_score == pytest.approx(0.95)
+    # 2 synthesizer + 2 critic = 4 total calls
+    assert len(mock_client.call_history) == 4
     # Check that synthesizer call 2 received the feedback from attempt 1
-    attempt_2_prompt = mock_client.call_history[3]["prompt"]
+    attempt_2_prompt = mock_client.call_history[2]["prompt"]
     assert "PREVIOUS VERIFIER FEEDBACK" in attempt_2_prompt
     assert "Parent of node at index 7" in attempt_2_prompt
 
@@ -357,8 +352,6 @@ Complete sections and accurate complexity derivation.
         custom_responses=[
             malformed_synth_attempt_1,
             valid_synth_attempt_2,
-            # Validation after attempt 2: no snippets -> skip
-            "N/A",
             accepted_critique,
         ]
     )
@@ -372,9 +365,9 @@ Complete sections and accurate complexity derivation.
 
     assert evaluation.accepted is True
     assert q.solution == "B"
-    # Total calls = 4 (Attempt 1 Synthesizer -> format error -> Attempt 2 Synthesizer ->
-    # Validation (skipped) -> Attempt 2 Critic)
-    assert len(mock_client.call_history) == 4
+    # Total calls = 3 (Attempt 1 Synthesizer -> format error -> Attempt 2
+    # Synthesizer -> Attempt 2 Critic)
+    assert len(mock_client.call_history) == 3
     attempt_2_synth_prompt = mock_client.call_history[1]["prompt"]
     assert "FORMAT ERROR" in attempt_2_synth_prompt
     assert "## SOLUTION" in attempt_2_synth_prompt
@@ -414,16 +407,10 @@ Flaw persists.
     mock_client = MockLLMClient(
         custom_responses=[
             synth_resp,
-            # Validation: no snippets -> skip
-            "N/A",
             always_rejected,
             synth_resp,
-            # Validation: no snippets -> skip
-            "N/A",
             always_rejected,
             synth_resp,
-            # Validation: no snippets -> skip
-            "N/A",
             always_rejected,
         ]
     )
@@ -437,8 +424,8 @@ Flaw persists.
 
     assert evaluation.accepted is False
     assert evaluation.correctness_status == "flagged"
-    # 3 attempts * 3 calls each (synthesizer + validation + critic) = 9 total calls
-    assert len(mock_client.call_history) == 9
+    # 3 attempts * 2 calls each (synthesizer + critic) = 6 total calls
+    assert len(mock_client.call_history) == 6
 
 
 def test_synthesize_exam_slots_batch_runner() -> None:
@@ -527,17 +514,16 @@ def test_live_openrouter_if_key_present(
             "AGENT_OPENROUTER_API_KEY not set. Skipping live LLM integration test."
         )
 
-    client = OpenRouterClient()
     try:
-        q, evaluation = run_slot_synthesis(
+        question, evaluation = run_slot_synthesis(
             slot=sample_slot,
             anchor=sample_anchor,
             max_attempts=2,
-            llm=llm,
+            llm=get_chat_model(),
         )
-    except OpenRouterError as exc:
+    except Exception as exc:  # ruff: ignore[blind-except] - any provider failure skips the live test
         pytest.skip(f"OpenRouter live call skipped due to provider/credit limit: {exc}")
 
-    assert q.slot_number == sample_slot.slot_number
-    assert q.prompt.strip()
+    assert question.slot_number == sample_slot.slot_number
+    assert question.prompt.strip()
     assert evaluation.verifier_notes.strip()

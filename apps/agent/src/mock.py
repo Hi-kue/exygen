@@ -1,15 +1,18 @@
-"""Demonstrates the Agent 2 -> code sandbox -> Agent 3 loop end-to-end.
+"""Demonstrates the Synthesizer -> Critic slot loop and the code sandbox step.
 
 The synthesized heap question has no embedded code snippets, so the code
-sandbox step decides the output is code-validatable and runs pre-generated
-Python validation code in Docker.
+sandbox step decides the output is code-validatable, generates Python
+validation code, and runs it through Judge0.
+
+Run it from 'apps/agent' with 'python -m src.mock'.
 """
 
 from __future__ import annotations
 
-from exygen_agent import (
+from src.agents import (
     AnchorQuestion,
     BlueprintSlot,
+    CodeSandboxAgent,
     MockLLMClient,
     run_slot_synthesis,
 )
@@ -43,27 +46,11 @@ slot = BlueprintSlot(
     anchor_question_id="comp250_f24_midterm_q4",
 )
 
-# 3. Pre-generated Python validation code (what the validation generator would
-#    produce for the heap question).
-PYTHON_VALIDATION_CODE = """import heapq
-
-H = [50, 30, 40, 15, 20, 35, 38]
-max_heap = [-x for x in H]
-heapq.heapify(max_heap)
-heapq.heappush(max_heap, -45)
-
-# The heap as a max-heap (negate back) after insertion:
-print([-x for x in max_heap])
-print("2 swaps, index 1")
-"""
-
-# 4. Mock LLM responses consumed in order by the three agents:
-#    - Agent 2 synthesizer        -> heap question (no embedded snippets)
-#    - Code Validation Generator  -> pre-generated python code
-#    - Agent 3 critic             -> accepted
-mock_client = MockLLMClient(
+# 3. Mock LLM responses consumed in order by the slot loop:
+#    - Synthesizer -> heap question (no embedded snippets)
+#    - Critic      -> accepted and verified
+mock_llm = MockLLMClient(
     custom_responses=[
-        # Agent 2 synthesized question (no code snippets embedded in the prompt)
         """## QUESTION
 Consider a max-heap H stored in an array representation: [50, 30, 40, 15, 20, 35, 38].
 We insert key 45 into H using standard percolate-up (sift-up). How many total swaps
@@ -86,17 +73,11 @@ index 1). Root is 50, so percolation stops. Total swaps = 2, final index = 1.
 ## RATIONALE
 Mirrors anchor heap insertion and sift-up mechanics.
 """,
-        # Validation generator returns pre-generated python code
-        f"```python\n{PYTHON_VALIDATION_CODE}\n```",
-        # Critic accepts
         """## ACCEPTED
 true
 
 ## CORRECTNESS_STATUS
 verified
-
-## CODE_SANDBOX_PASSED
-N/A
 
 ## STYLE_ALIGNMENT_SCORE
 0.94
@@ -110,34 +91,54 @@ Question is solvable and unambiguous. Trace verified correct. Style matches exam
     ]
 )
 
-# 5. Run the full Agent 2 -> code sandbox -> Agent 3 loop.
-#    execute_in_sandbox is NOT mocked: it will actually attempt to run the
-#    Python validation code in Docker. (If Docker is unavailable in this
-#    environment it will report an infrastructure error through the normal
-#    feedback loop instead of fabricating a result.)
+# 4. Run the slot loop: Synthesizer writes a draft, the Critic reviews it.
 question, evaluation = run_slot_synthesis(
     slot=slot,
     anchor=anchor,
     max_attempts=3,
-    llm_client=mock_client,
+    llm=mock_llm,
 )
 
-# 7. Print results.
-print("=== AGENT 2 OUTPUT (SynthesizedQuestion) ===")
+# 5. Pre-generated Python validation code (what the sandbox generator produces for
+#    the heap question), and the code sandbox step that runs it.
+PYTHON_VALIDATION_CODE = """import heapq
+
+H = [50, 30, 40, 15, 20, 35, 38]
+max_heap = [-x for x in H]
+heapq.heapify(max_heap)
+heapq.heappush(max_heap, -45)
+
+# The heap as a max-heap (negate back) after insertion:
+print([-x for x in max_heap])
+print("2 swaps, index 1")
+"""
+
+sandbox_llm = MockLLMClient(
+    custom_responses=[f"```python\n{PYTHON_VALIDATION_CODE}\n```"]
+)
+
+# execute_in_sandbox is NOT mocked: it really submits the code to Judge0. If Judge0
+# is not reachable, the step reports an infrastructure error instead of making up a
+# result. The Critic only records a sandbox result that a real run produced.
+sandbox_result = CodeSandboxAgent(llm=sandbox_llm).prepare_and_execute(question)
+
+# 6. Print results.
+print("=== SYNTHESIZER OUTPUT (SynthesizedQuestion) ===")
 print(question.model_dump_json(indent=2, exclude={"raw_markdown"}))
 
-print("\n=== AGENT 3 OUTPUT (CriticEvaluation) ===")
+print("\n=== CRITIC OUTPUT (CriticEvaluation) ===")
 print(evaluation.model_dump_json(indent=2, exclude={"raw_markdown"}))
 
+print("\n=== CODE SANDBOX OUTPUT (CodeSandboxResult) ===")
+print(sandbox_result.model_dump_json(indent=2, exclude={"prepared_code"}))
+
 print("\n=== LLM CALL HISTORY ===")
-for idx, call in enumerate(mock_client.call_history):
+for idx, call in enumerate(mock_llm.call_history):
     sysp = call["system_prompt"] or ""
-    if "Code Validation Generator" in sysp:
-        role = "VALIDATION_GENERATOR"
-    elif "Question Synthesizer" in sysp:
-        role = "AGENT_2_SYNTHESIZER"
+    if "Question Synthesizer" in sysp:
+        role = "SYNTHESIZER"
     elif "Critic" in sysp:
-        role = "AGENT_3_CRITIC"
+        role = "CRITIC"
     else:
         role = "UNKNOWN"
     print(f"  [{idx}] {role}")

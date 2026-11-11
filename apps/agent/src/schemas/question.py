@@ -16,6 +16,7 @@ from __future__ import annotations
 from typing import Literal
 
 from pydantic import BaseModel, Field
+
 from src.schemas.general import DifficultyLevel
 
 QuestionType = Literal[

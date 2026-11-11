@@ -119,7 +119,7 @@ Exygen uses an Nx monorepo combining Python workspaces managed by `uv` and TypeS
 |   |-- agent/                  # Python multi-agent pipeline and Pydantic contracts
 |   |   |-- project.json
 |   |   |-- pyproject.toml
-|   |   |-- src/exygen_agent/
+|   |   |-- src/                  # agents/, clients/, schemas/, settings.py, entry points
 |   |   `-- tests/
 |   |-- api/                    # FastAPI service consuming exygen-agent
 |   |   |-- project.json

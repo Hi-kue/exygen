@@ -1,7 +1,7 @@
 ---
 title: Agent
 date: Saturday 24th October 2026 18:40:00
-modified_date: Tuesday 3rd November 2026 12:40:00
+modified_date: Wednesday 11th November 2026 12:00:00
 summary: Overview of the exygen-agent Python package in apps/agent, with links to its pipeline and reference pages.
 tags:
     - agent
@@ -31,7 +31,9 @@ The docs for this package are split into two pages:
 
 ## Code Execution Sandbox
 
-`CodeSandboxAgent` (`agents/code_sandbox_agent.py`) runs between the synthesizer and the critic. It extracts code snippets from the generated prompt, has the LLM prepare runnable files, and executes them through `Judge0Service` (`sandbox/judge0_service.py`). Questions without snippets get a generated validation program when the answer is code-verifiable, and are skipped otherwise. Execution results override the critic's `code_sandbox_passed` flag, and failures return to the synthesizer for a bounded number of retries.
+`CodeSandboxAgent` (`agents/sandbox/code_sandbox_agent.py`) takes one synthesized question, extracts code snippets from its prompt, has the LLM prepare runnable files, and executes them through `Judge0Service` (`agents/sandbox/judge0_service.py`). Questions without snippets get a generated validation program when the answer is code-verifiable, and are skipped otherwise. `python -m src.mock` runs it on a mock question.
+
+No graph node calls it yet, so the [Critic](pipeline.md#critic) leaves `code_sandbox_passed` at `None` and code questions stay `unverified`. See [Critic](pipeline.md#critic) for why that flag cannot come from the model.
 
 For local execution, start the Judge0 stack in `docker/judge0/`. The agent defaults to `JUDGE0_API_URL="http://localhost:2358"`; set `JUDGE0_AUTH_TOKEN` if the instance requires the `X-Auth-Token` header. Python uses Judge0 language id `71` and Java uses `62`; Java files other than `Main.java` are sent through `additional_files`. See `docker/judge0/README.md` for setup and troubleshooting.
 
