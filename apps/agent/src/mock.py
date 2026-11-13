@@ -1,8 +1,8 @@
-"""Demonstrates the Synthesizer -> Critic slot loop and the code sandbox step.
+"""Demonstrates the Synthesizer -> validation code -> code executor -> Critic loop.
 
-The synthesized heap question has no embedded code snippets, so the code
-sandbox step decides the output is code-validatable, generates Python
-validation code, and runs it through Judge0.
+The synthesized heap question has no embedded code snippets, so the validation
+code node asks for a Python program that reproduces the answer, and the code
+executor runs it through Judge0.
 
 Run it from 'apps/agent' with 'python -m src.mock'.
 """
@@ -16,6 +16,7 @@ from src.agents import (
     MockLLMClient,
     run_slot_synthesis,
 )
+from src.agents.schemas import CodeSandboxResult, SynthesizedQuestion
 
 # 1. Anchor question (exemplar from a past exam)
 anchor = AnchorQuestion(
@@ -91,15 +92,26 @@ Question is solvable and unambiguous. Trace verified correct. Style matches exam
     ]
 )
 
-# 4. Run the slot loop: Synthesizer writes a draft, the Critic reviews it.
-question, evaluation = run_slot_synthesis(
-    slot=slot,
-    anchor=anchor,
-    max_attempts=3,
-    llm=mock_llm,
-)
 
-# 5. Pre-generated Python validation code (what the sandbox generator produces for
+# 4. Run the slot loop: Synthesizer writes a draft, the validation code node writes the
+#    program that reproduces its answer, the code executor runs that program, and the
+#    Critic reviews the draft. The recorder keeps the sandbox result so the demo can
+#    print it without running the code a second time.
+class RecordingCodeExecutor:
+    def __init__(self, agent: CodeSandboxAgent) -> None:
+        self.agent = agent
+        self.result = None
+
+    def prepare_and_execute(self, question: SynthesizedQuestion) -> CodeSandboxResult:
+        self.result = self.agent.prepare_and_execute(question)
+        return self.result
+
+    def execute_validation_code(self, code_block: str) -> CodeSandboxResult:
+        self.result = self.agent.execute_validation_code(code_block)
+        return self.result
+
+
+# 5. Pre-generated Python validation code (what the validation code node produces for
 #    the heap question), and the code sandbox step that runs it.
 PYTHON_VALIDATION_CODE = """import heapq
 
@@ -113,14 +125,25 @@ print([-x for x in max_heap])
 print("2 swaps, index 1")
 """
 
-sandbox_llm = MockLLMClient(
+validation_llm = MockLLMClient(
     custom_responses=[f"```python\n{PYTHON_VALIDATION_CODE}\n```"]
 )
 
 # execute_in_sandbox is NOT mocked: it really submits the code to Judge0. If Judge0
-# is not reachable, the step reports an infrastructure error instead of making up a
-# result. The Critic only records a sandbox result that a real run produced.
-sandbox_result = CodeSandboxAgent(llm=sandbox_llm).prepare_and_execute(question)
+# is not reachable, the node reports an infrastructure error and the draft is flagged
+# after the attempts run out, instead of making up a result.
+executor = RecordingCodeExecutor(CodeSandboxAgent(llm=MockLLMClient()))
+
+question, evaluation = run_slot_synthesis(
+    slot=slot,
+    anchor=anchor,
+    max_attempts=3,
+    code_executor=executor,
+    llm=mock_llm,
+    validation_llm=validation_llm,
+)
+
+sandbox_result = executor.result
 
 # 6. Print results.
 print("=== SYNTHESIZER OUTPUT (SynthesizedQuestion) ===")
@@ -137,6 +160,8 @@ for idx, call in enumerate(mock_llm.call_history):
     sysp = call["system_prompt"] or ""
     if "Question Synthesizer" in sysp:
         role = "SYNTHESIZER"
+    elif "Code Validation Generator" in sysp:
+        role = "VALIDATION CODE"
     elif "Critic" in sysp:
         role = "CRITIC"
     else:

@@ -65,7 +65,7 @@ def create_synthesizer_node(
 
     def synthesizer_node(
         state: ExygenState,
-    ) -> Command[Literal["critic", "synthesizer", "__end__"]]:
+    ) -> Command[Literal["validation_code", "synthesizer", "__end__"]]:
         slot = current_slot(state)
         anchor = current_anchor(state)
         feedback_history = list(state.get("feedback_history", []))
@@ -127,8 +127,14 @@ def create_synthesizer_node(
             )
 
         return Command(
-            update={"current_question": question, "last_draft": question},
-            goto="critic",
+            update={
+                "current_question": question,
+                "last_draft": question,
+                # A new draft needs its own validation program and sandbox verdict.
+                "validation_code": None,
+                "code_sandbox_result": None,
+            },
+            goto="validation_code",
         )
 
     return synthesizer_node

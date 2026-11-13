@@ -10,7 +10,7 @@ Exygen operates in 4 stages across the pipeline:
 
 1. **Stage 1 — Ingestion & Classification (Docling & Agent 1)**: Parses source PDFs into structured `AnchorQuestion` records tagged with topic, format, marks, keywords, archetype, and difficulty.
 2. **Stage 2 — Profiling & Consensus Planning (Deterministic Python)**: Balances topics and marks to produce an `ExamBlueprintWithSlots`, where each `BlueprintSlot` is paired with an exemplar `anchor_question_id`.
-3. **Stage 3 — LangGraph Synthesis Loop (Agent 2 & Agent 3)**: Iterates slot-by-slot (1 question per cycle). Agent 2 (`QuestionSynthesizerAgent`) synthesizes an original question anchored to the exemplar; Agent 3 (`CriticAgent`) verifies correctness, solvability, and style alignment. Rejected or malformed drafts loop back to Agent 2 with working-memory feedback for up to `max_attempts = 3`.
+3. **Stage 3 — LangGraph Synthesis Loop (Agent 2, Code Executor & Agent 3)**: Iterates slot-by-slot (1 question per cycle). Agent 2 (`QuestionSynthesizerAgent`) synthesizes an original question anchored to the exemplar; the code executor prepares and runs its code through Judge0; Agent 3 (`CriticAgent`) verifies correctness, solvability, and style alignment. Rejected, failed-execution, or malformed drafts loop back to Agent 2 with working-memory feedback for up to `max_attempts = 3`.
 4. **Stage 4 — Assembly & Provenance (UI & Export)**: Packages the verified questions, answer keys/explanations, and professor style alignment audit trace for the web studio and PDF/Markdown export.
 
 ### Pipeline Graph
@@ -25,7 +25,9 @@ flowchart LR
     Structure --> Classifier["classifier (Agent 1)"]
     Classifier --> Planner["planner"]
     Planner --> Synth["synthesizer (Agent 2)"]
-    Synth --> Critic["critic (Agent 3)"]
+    Synth --> Exec["code executor<br/>Judge0"]
+    Exec -->|"passed or skipped"| Critic["critic (Agent 3)"]
+    Exec -->|"failed, attempts left"| Synth
     Critic -->|"rejected, attempts left"| Synth
     Critic -->|"accepted, unverified, or attempts exhausted"| NextSlot{"more slots?"}
     NextSlot -->|"yes"| Synth
@@ -40,16 +42,16 @@ Every node returns a `Command` naming the next node, so the graph has a single s
 
 | File | Responsibility | Key Classes & Functions |
 | :--- | :--- | :--- |
-| [`schemas.py`](./src/agents/schemas.py) | Typed Pydantic v2 schemas for the agent boundaries, the graph state, and Markdown section extraction | `AnchorQuestion`, `BlueprintSlot`, `ExamBlueprintWithSlots`, `SynthesizedQuestion`, `CriticEvaluation`, `CriticFeedback`, `ExygenState`, `MarkdownParseError`, `extract_markdown_sections()` |
+| [`schemas.py`](./src/agents/schemas.py) | Typed Pydantic v2 schemas for the agent boundaries, the code execution results, the graph state, and Markdown section extraction | `AnchorQuestion`, `BlueprintSlot`, `ExamBlueprintWithSlots`, `SynthesizedQuestion`, `CriticEvaluation`, `CriticFeedback`, `CodeSandboxResult`, `SandboxExecutionResult`, `ExygenState`, `MarkdownParseError`, `extract_markdown_sections()` |
 | [`llm_client.py`](./src/agents/llm_client.py) | Chat model factory (OpenRouter via LangChain, configured from `settings.py`) and deterministic mock fallback | `MockLLMClient`, `get_chat_model()`, `get_vision_model()`, `create_llm_agent()`, `invoke_llm_agent()`, `complete_text()` |
 | [`settings.py`](./src/settings.py) | Typed environment configuration (`APP_*`, `AGENT_*`, `LANGFUSE_*`, `JUDGE0_*`) loaded from the process environment and `apps/agent/.env`; see [`.env.sample`](./.env.sample) | `Settings`, `AgentSettings`, `LangfuseSettings`, `Judge0Settings`, `get_settings()`, `settings` |
 | [`classifier/base.py`](./src/agents/classifier/base.py) | **Stage 1 (Classifier)**: tags each extracted question with format, topic, marks, archetype and difficulty | `ClassifierAgent`, `source_document_from_extraction()` |
 | [`planner/base.py`](./src/agents/planner/base.py) | **Stage 2 (Planner)**: turns the tagged anchors into a slot blueprint, deterministically | `ExamPlanner` |
 | [`synthesizer/base.py`](./src/agents/synthesizer/base.py) | **Agent 2 (Question Synthesizer)**: exemplar-anchored prompt builder and Markdown-to-object parser | `QuestionSynthesizerAgent`, `build_synthesis_prompt()`, `parse_synthesized_markdown()` |
 | [`critic/base.py`](./src/agents/critic/base.py) | **Agent 3 (Critic)**: academic verification prompt builder and flexible verdict parser | `CriticAgent`, `build_critic_prompt()`, `parse_critic_markdown()` |
-| [`graph.py`](./src/agents/graph.py) | **The one LangGraph**: entry → ingest → structure → classifier → planner → synthesizer ⇄ critic, plus the slot-loop runners | `create_exygen_graph()`, `run_exygen()`, `run_classifier()`, `run_slot_synthesis()`, `synthesize_exam_slots()` |
-| [`nodes/`](./src/agents/nodes/) | The graph's nodes, one file per stage | `entry_node`, `create_ingest_node()`, `create_structure_node()`, `create_classifier_node()`, `create_planner_node()`, `create_synthesizer_node()`, `create_critic_node()` |
-| [`sandbox/`](./src/agents/sandbox/) | Code execution step: prepares runnable code from a question and runs it through Judge0 | `CodeSandboxAgent`, `CodeSandboxResult`, `Judge0Service`, `SandboxExecutionResult` |
+| [`graph.py`](./src/agents/graph.py) | **The one LangGraph**: entry → ingest → structure → classifier → planner → synthesizer ⇄ code executor ⇄ critic, plus the slot-loop runners | `create_exygen_graph()`, `run_exygen()`, `run_classifier()`, `run_slot_synthesis()`, `synthesize_exam_slots()` |
+| [`nodes/`](./src/agents/nodes/) | The graph's nodes, one file per stage | `entry_node`, `create_ingest_node()`, `create_structure_node()`, `create_classifier_node()`, `create_planner_node()`, `create_synthesizer_node()`, `create_code_executor_node()`, `create_critic_node()` |
+| [`sandbox/`](./src/agents/sandbox/) | Code execution step: prepares runnable code from a question and runs it through Judge0, called by the `code_executor` node | `CodeSandboxAgent`, `Judge0Service`, `execute_in_sandbox()` |
 | [`orchestrator.py`](./src/orchestrator.py) | Deterministic pipeline coordinator and offline synthetic fixtures | `ExamPipelineOrchestrator`, `default_synthetic_documents()` |
 | [`schemas/`](./src/schemas/) | General pipeline contracts consumed by `apps/api` | `SourceDocument`, `ExtractedExam`, `StyleProfile`, `ExamBlueprint`, `GeneratedQuestion`, `ValidationReport`, `AssembledExam` |
 
@@ -96,7 +98,7 @@ uv run pytest apps/agent/tests
 uv run ruff check apps/agent
 ```
 
-The offline Synthesizer → Critic → code sandbox demo runs without credentials:
+The offline Synthesizer → code executor → Critic demo runs without credentials:
 
 ```powershell
 cd apps/agent

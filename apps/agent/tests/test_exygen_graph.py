@@ -19,7 +19,13 @@ from src.agents.graph import (
 )
 from src.agents.llm_client import MockLLMClient
 from src.agents.planner.base import ExamPlanner
-from src.agents.schemas import AnchorQuestion, BlueprintSlot, ExamBlueprintWithSlots
+from src.agents.sandbox.code_sandbox_agent import CodeSandboxAgent
+from src.agents.schemas import (
+    AnchorQuestion,
+    BlueprintSlot,
+    CodeSandboxResult,
+    ExamBlueprintWithSlots,
+)
 from src.clients.clef_client import ClefClient
 from src.clients.langfuse_client import langfuse_client
 from src.schemas import DocumentPage, SourceDocument
@@ -72,6 +78,18 @@ def offline(monkeypatch: pytest.MonkeyPatch) -> ClassifierAgent:
     return ClassifierAgent(
         llm=MockLLMClient(), clef=ClefClient.__wrapped__(), reading_mode="per_page"
     )
+
+
+@pytest.fixture(autouse=True)
+def skipped_code_executor(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep the slot loop offline: a skipped sandbox adds no model calls."""
+
+    def _skip(self: CodeSandboxAgent, question: object) -> CodeSandboxResult:
+        return CodeSandboxResult(
+            skipped=True, status="SKIPPED", notes="Skipped in tests."
+        )
+
+    monkeypatch.setattr(CodeSandboxAgent, "prepare_and_execute", _skip)
 
 
 # region Planner
@@ -193,9 +211,14 @@ def test_graph_connects_every_stage_in_order(offline: ClassifierAgent) -> None:
         ("classifier", "__end__"),
         ("planner", "synthesizer"),
         ("planner", "__end__"),
-        ("synthesizer", "critic"),
+        ("synthesizer", "validation_code"),
         ("synthesizer", "synthesizer"),
         ("synthesizer", "__end__"),
+        ("validation_code", "code_executor"),
+        ("validation_code", "critic"),
+        ("code_executor", "critic"),
+        ("code_executor", "synthesizer"),
+        ("code_executor", "__end__"),
         ("critic", "synthesizer"),
         ("critic", "__end__"),
     }
@@ -302,7 +325,10 @@ def test_each_slot_starts_with_its_own_attempts_and_feedback() -> None:
     )
 
     questions, evaluations = synthesize_exam_slots(
-        blueprint, {"q1": make_anchor("q1"), "q2": make_anchor("q2")}, llm=llm
+        blueprint,
+        {"q1": make_anchor("q1"), "q2": make_anchor("q2")},
+        llm=llm,
+        validation_llm=MockLLMClient(),
     )
 
     assert [e.accepted for e in evaluations] == [True, True]
@@ -337,6 +363,7 @@ def test_a_slot_that_uses_all_its_attempts_does_not_shorten_the_next_slot() -> N
         {"q1": make_anchor("q1"), "q2": make_anchor("q2")},
         max_attempts=2,
         llm=llm,
+        validation_llm=MockLLMClient(),
     )
 
     assert [e.accepted for e in evaluations] == [False, True]
@@ -346,7 +373,9 @@ def test_a_slot_that_uses_all_its_attempts_does_not_shorten_the_next_slot() -> N
 def test_unverified_result_is_final_and_is_not_retried() -> None:
     llm = MockLLMClient()
 
-    _, evaluation = run_slot_synthesis(make_slot(), make_anchor(), llm=llm)
+    _, evaluation = run_slot_synthesis(
+        make_slot(), make_anchor(), llm=llm, validation_llm=MockLLMClient()
+    )
 
     assert evaluation.accepted is False
     assert evaluation.correctness_status == "unverified"
@@ -364,6 +393,7 @@ def test_code_question_the_llm_approves_is_kept_without_a_retry() -> None:
         make_slot(format="code_writing"),
         make_anchor(detected_format="code_writing"),
         llm=llm,
+        validation_llm=MockLLMClient(),
     )
 
     assert question.prompt == "Write f."

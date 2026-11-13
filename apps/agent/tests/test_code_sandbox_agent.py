@@ -3,7 +3,7 @@ from __future__ import annotations
 from unittest import mock
 
 from src import CodeSandboxAgent, MockLLMClient, SynthesizedQuestion
-from src.agents.sandbox.sandbox_result import SandboxExecutionResult
+from src.agents.schemas import SandboxExecutionResult
 
 JAVA_PREP_RESPONSE = """```java
 ## FILE: Cast.java
@@ -200,6 +200,25 @@ def test_execution_failure_flags_needs_regeneration() -> None:
     assert result.files is not None
 
 
+def test_an_unavailable_judge0_is_skipped_not_flagged() -> None:
+    agent = CodeSandboxAgent(llm=stub_llm(JAVA_PREP_RESPONSE))
+    with mock.patch(
+        EXECUTOR_PATH,
+        return_value=SandboxExecutionResult(
+            is_success=False,
+            error="Judge0 connection error: connection refused",
+            infrastructure_error=True,
+        ),
+    ):
+        result = agent.prepare_and_execute(make_java_question())
+
+    assert result.skipped is True
+    assert result.status == "SKIPPED"
+    assert result.needs_regeneration is False
+    assert "unavailable" in (result.notes or "")
+    assert "connection refused" in (result.error or "")
+
+
 def test_unsupported_language_returns_failure() -> None:
     question = SynthesizedQuestion(
         slot_number=1,
@@ -222,93 +241,39 @@ def test_unsupported_language_returns_failure() -> None:
     assert result.status == "SKIPPED"
 
 
-def test_no_snippets_but_code_validatable_generates_python_and_executes() -> None:
-    """No embedded snippets, but the LLM decides the output is code-validatable
-    and generates Python validation code that the sandbox runs successfully."""
-    heap_question = SynthesizedQuestion(
-        slot_number=1,
-        topic="heaps",
-        format="multiple_choice",
-        marks=5,
-        difficulty="medium",
-        prompt=(
-            "## QUESTION\n"
-            "Consider a max-heap H stored in an array representation: [50, 30, 40, 15, 20, 35, 38]. "
-            "We insert key 45 into H using standard percolate-up (sift-up). How many total swaps occur, "
-            "and what is the new index of key 45?\n\n"
-            "## OPTIONS\n"
-            "(A) 1 swap, index 3\n"
-            "(B) 2 swaps, index 1\n"
-            "(C) 2 swaps, index 2\n"
-            "(D) 0 swaps, index 7\n\n"
-            "## SOLUTION\nB\n\n"
-            "## EXPLANATION\nTwo swaps occur; final index 1.\n\n"
-            "## RATIONALE\nMirrors anchor heap insertion.\n"
-        ),
-        mcq_options={
-            "A": "1 swap, index 3",
-            "B": "2 swaps, index 1",
-            "C": "2 swaps, index 2",
-            "D": "0 swaps, index 7",
-        },
-        solution="B",
-        explanation="Two swaps; final index 1.",
-        code_test_cases=None,
-        rationale="Mirrors anchor heap insertion.",
-    )
+def test_a_validation_program_is_executed_as_given() -> None:
+    """The validation code node supplies the program; this agent only runs it."""
     python_code = (
-        "import heapq\n"
-        "H = [50, 30, 40, 15, 20, 35, 38]\n"
-        "max_heap = [-x for x in H]\n"
-        "heapq.heapify(max_heap)\n"
-        "heapq.heappush(max_heap, -45)\n"
-        "print([-x for x in max_heap])\n"
-        'print("2 swaps, index 1")\n'
+        "import heapq
+"
+        "H = [50, 30, 40, 15, 20, 35, 38]
+"
+        "max_heap = [-x for x in H]
+"
+        "heapq.heapify(max_heap)
+"
+        "heapq.heappush(max_heap, -45)
+"
+        "print(\"2 swaps, index 1\")
+"
     )
-    agent = CodeSandboxAgent(llm=stub_llm(f"```python\n{python_code}\n```"))
+    agent = CodeSandboxAgent(llm=MockLLMClient())
     with mock.patch(
         EXECUTOR_PATH,
         return_value=SandboxExecutionResult(
             is_success=True,
-            output="[50, 45, 40, 15, 20, 30, 35, 38]\n2 swaps, index 1\n",
+            output="2 swaps, index 1
+",
             exit_code=0,
         ),
     ) as executor:
-        result = agent.prepare_and_execute(heap_question)
+        result = agent.execute_validation_code(python_code)
 
     assert result.skipped is False
     assert result.language == "python"
     assert result.status == "PASS"
-    assert result.needs_regeneration is False
-    assert result.output == "[50, 45, 40, 15, 20, 30, 35, 38]\n2 swaps, index 1\n"
+    assert result.output == "2 swaps, index 1
+"
     assert result.files == {"solution.py": python_code.strip()}
     executor.assert_called_once()
     assert executor.call_args.kwargs["language"] == "python"
-
-
-def test_no_snippets_not_code_validatable_skipped() -> None:
-    """No embedded snippets and the LLM declines code validation -> skipped."""
-    conceptual_question = SynthesizedQuestion(
-        slot_number=1,
-        topic="complexity",
-        format="short_answer",
-        marks=5,
-        difficulty="medium",
-        prompt=(
-            "## QUESTION\n"
-            "Explain why binary search requires the input array to be sorted.\n"
-        ),
-        mcq_options=None,
-        solution="Because binary search relies on the ordering invariant.",
-        explanation="Ordering invariant lets us discard half the search space each step.",
-        code_test_cases=None,
-        rationale="Mirrors anchor.",
-    )
-    agent = CodeSandboxAgent(llm=stub_llm("N/A"))
-    result = agent.prepare_and_execute(conceptual_question)
-
-    assert result.skipped is True
-    assert result.status == "SKIPPED"
-    assert result.language == "python"
-    assert result.needs_regeneration is False
-    assert "cannot be validated" in (result.notes or "")

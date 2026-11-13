@@ -2,7 +2,7 @@
 robots: noindex, nofollow
 title: Changelogs
 date: Saturday 24th October 2026 18:40:00
-modified_date: Wednesday 11th November 2026 12:00:00
+modified_date: Friday 13th November 2026 12:00:00
 summary: Root changelog index for Exygen, listing the latest entry for each component (agent, api, web, platform).
 status: new
 is_index?: true
@@ -33,7 +33,19 @@ Each component keeps its own `changelogs/` folder with one file per release or b
 ## Agent
 
 - **Source**: `apps/agent`, the Python multi-agent pipeline and Pydantic contracts.
-- **Latest**: [261111-A-import-repair](agent/changelogs/261111-A-import-repair.md)
+- **Latest**: [261113-A-sandbox-results-in-schemas](agent/changelogs/261113-A-sandbox-results-in-schemas.md)
+
+### [Unreleased] - 2026-11-13
+
+#### Changed
+
+`SandboxExecutionResult` and `CodeSandboxResult` moved into `agents/schemas.py` with the other agent contracts, and `agents/sandbox/sandbox_result.py` and `agents/sandbox/code_sandbox_result.py` were deleted. Fields and behavior are unchanged, and `src` still re-exports both models.
+
+### [Unreleased] - 2026-11-12
+
+#### Added
+
+The `code_executor` node runs `CodeSandboxAgent` between the synthesizer and the critic. Code failures return to the synthesizer with the error and sandbox output until the slot's attempts run out, then the slot is flagged. The critic records a real `code_sandbox_passed` result, and an unavailable Judge0 is treated as a skipped run rather than a pass.
 
 ### [Unreleased] - 2026-11-11
 

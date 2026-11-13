@@ -8,7 +8,7 @@ from typing import Any
 
 import httpx
 
-from src.agents.sandbox.sandbox_result import SandboxExecutionResult
+from src.agents.schemas import SandboxExecutionResult
 from src.settings import Judge0Settings, get_settings
 
 # Centralized language -> Judge0 configuration.
@@ -100,6 +100,7 @@ class Judge0Service:
             return SandboxExecutionResult(
                 is_success=False,
                 error=f"Unsupported language for sandbox execution: '{language}'",
+                infrastructure_error=True,
             )
 
         prepared = self._prepare_sources(executable_code, config, files)
@@ -134,21 +135,25 @@ class Judge0Service:
                     f"Judge0 request failed with status {exc.response.status_code}: "
                     f"{body or exc.response.reason_phrase}"
                 ),
+                infrastructure_error=True,
             )
         except httpx.HTTPError as exc:
             return SandboxExecutionResult(
                 is_success=False,
                 error=f"Judge0 connection error: {exc}",
+                infrastructure_error=True,
             )
         except ValueError as exc:
             return SandboxExecutionResult(
                 is_success=False,
                 error=f"Judge0 returned an invalid response: {exc}",
+                infrastructure_error=True,
             )
         except Exception as exc:  # ruff: ignore[blind-except] - defensive boundary around Judge0
             return SandboxExecutionResult(
                 is_success=False,
                 error=f"Judge0 infrastructure error: {exc}",
+                infrastructure_error=True,
             )
 
         return self._to_result(submission)
@@ -184,6 +189,7 @@ class Judge0Service:
                     "Java execution requires a Main.java file; "
                     f"received: {', '.join(sorted(files))}"
                 ),
+                infrastructure_error=True,
             )
         elif len(files) == 1:
             # A single Python file under another name is still unambiguous.
@@ -195,6 +201,7 @@ class Judge0Service:
                     f"Execution requires a {source_file} file; "
                     f"received: {', '.join(sorted(files))}"
                 ),
+                infrastructure_error=True,
             )
 
         extra_files: dict[str, str] = {}
@@ -205,6 +212,7 @@ class Judge0Service:
                 return SandboxExecutionResult(
                     is_success=False,
                     error=f"Unsafe additional filename: '{name}'",
+                    infrastructure_error=True,
                 )
             extra_files[name] = content
 

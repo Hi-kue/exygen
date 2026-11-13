@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from src.agents.sandbox.judge0_service import execute_in_sandbox as _execute_in_sandbox
-from src.agents.sandbox.sandbox_result import SandboxExecutionResult
+from src.agents.schemas import SandboxExecutionResult
 
 
 def execute_in_sandbox(

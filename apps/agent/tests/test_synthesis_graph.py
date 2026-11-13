@@ -15,7 +15,21 @@ from src import (
     run_slot_synthesis,
     synthesize_exam_slots,
 )
+from src.agents.sandbox.code_sandbox_agent import CodeSandboxAgent
+from src.agents.schemas import CodeSandboxResult
 from src.settings import settings
+
+
+@pytest.fixture(autouse=True)
+def skipped_code_executor(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep the slot loop offline: a skipped sandbox adds no model calls."""
+
+    def _skip(self: CodeSandboxAgent, question: object) -> CodeSandboxResult:
+        return CodeSandboxResult(
+            skipped=True, status="SKIPPED", notes="Skipped in tests."
+        )
+
+    monkeypatch.setattr(CodeSandboxAgent, "prepare_and_execute", _skip)
 
 
 @pytest.fixture
@@ -210,6 +224,7 @@ def test_langgraph_single_attempt_accepted(
         slot=sample_slot,
         anchor=sample_anchor,
         llm=mock_client,
+        validation_llm=MockLLMClient(),
     )
     assert q.slot_number == 2
     assert evaluation.accepted is True
@@ -280,6 +295,7 @@ Corrected parent index arithmetic verified. Question is clean and aligned with i
         anchor=sample_anchor,
         max_attempts=3,
         llm=mock_client,
+        validation_llm=MockLLMClient(),
     )
 
     assert q.slot_number == 2
@@ -361,6 +377,7 @@ Complete sections and accurate complexity derivation.
         anchor=sample_anchor,
         max_attempts=3,
         llm=mock_client,
+        validation_llm=MockLLMClient(),
     )
 
     assert evaluation.accepted is True
@@ -420,6 +437,7 @@ Flaw persists.
         anchor=sample_anchor,
         max_attempts=3,
         llm=mock_client,
+        validation_llm=MockLLMClient(),
     )
 
     assert evaluation.accepted is False

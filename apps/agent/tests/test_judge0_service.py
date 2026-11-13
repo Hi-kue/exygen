@@ -101,6 +101,7 @@ def test_compile_error_is_failure_with_compile_output() -> None:
     result = _service(handler).execute("public class Main {", "java")
 
     assert result.is_success is False
+    assert result.infrastructure_error is False
     assert result.exit_code == 1
     assert result.output is None
     assert "';' expected" in (result.error or "")
@@ -159,6 +160,7 @@ def test_unsupported_language_does_not_call_judge0() -> None:
     result = _service(handler).execute("print(1)", "ruby")
 
     assert result.is_success is False
+    assert result.infrastructure_error is True
     assert "Unsupported language" in (result.error or "")
     assert calls == 0
 
@@ -261,6 +263,7 @@ def test_http_error_is_reported_as_failure() -> None:
     result = _service(handler).execute("print(1)", "python")
 
     assert result.is_success is False
+    assert result.infrastructure_error is True
     assert "422" in (result.error or "")
     assert "language_id is invalid" in (result.error or "")
 
@@ -272,4 +275,5 @@ def test_connection_error_is_reported_as_failure() -> None:
     result = _service(handler).execute("print(1)", "python")
 
     assert result.is_success is False
+    assert result.infrastructure_error is True
     assert "connection error" in (result.error or "").lower()
