@@ -1,9 +1,11 @@
 # General Dependencies
+pytest
 rich
 pydantic
 pydantic-settings
 openai
 httpx
+pygments
 
 # Agent Dependencies
 langgraph
@@ -25,3 +27,4 @@ pytest
 
 # IPython (Graph Gen) Dependencies (Optional)
 ipython # NOTE: Comment out when you don't need this!
+docling[rapidocr]

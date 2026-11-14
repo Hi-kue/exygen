@@ -15,7 +15,13 @@ from langchain_core.callbacks import BaseCallbackHandler
 from src.agents.classifier.base import ClassifierAgent
 from src.agents.graph import run_classifier, run_slot_synthesis, synthesize_exam_slots
 from src.agents.llm_client import MockLLMClient
-from src.agents.schemas import AnchorQuestion, BlueprintSlot, ExamBlueprintWithSlots
+from src.agents.sandbox.code_sandbox_agent import CodeSandboxAgent
+from src.agents.schemas import (
+    AnchorQuestion,
+    BlueprintSlot,
+    CodeSandboxResult,
+    ExamBlueprintWithSlots,
+)
 from src.clients.clef_client import ClefClient
 from src.clients.langfuse_client import langfuse_client
 from src.schemas import DocumentPage, SourceDocument
@@ -77,6 +83,18 @@ def offline_classifier(monkeypatch: pytest.MonkeyPatch) -> ClassifierAgent:
     return ClassifierAgent(llm=MockLLMClient(), clef=ClefClient.__wrapped__())
 
 
+@pytest.fixture(autouse=True)
+def skipped_code_executor(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep the slot loop offline: a skipped sandbox adds no model calls."""
+
+    def _skip(self: CodeSandboxAgent, question: object) -> CodeSandboxResult:
+        return CodeSandboxResult(
+            skipped=True, status="SKIPPED", notes="Skipped in tests."
+        )
+
+    monkeypatch.setattr(CodeSandboxAgent, "prepare_and_execute", _skip)
+
+
 def make_document() -> SourceDocument:
     return SourceDocument(
         id="doc1",
@@ -89,17 +107,26 @@ def make_document() -> SourceDocument:
 def test_slot_run_captures_the_prompts_of_both_agents(
     handler: RecordingHandler, slot: BlueprintSlot, anchor: AnchorQuestion
 ) -> None:
-    run_slot_synthesis(slot, anchor, llm=MockLLMClient(), session_id="exam-1")
-
-    assert len(handler.prompts) == 2
-    (synthesizer_system, synthesizer_prompt), (critic_system, critic_prompt) = (
-        handler.prompts
+    run_slot_synthesis(
+        slot,
+        anchor,
+        llm=MockLLMClient(),
+        validation_llm=MockLLMClient(),
+        session_id="exam-1",
     )
+
+    assert len(handler.prompts) == 3
+    (
+        (synthesizer_system, synthesizer_prompt),
+        (validation_system, _),
+        (critic_system, critic_prompt),
+    ) = handler.prompts
     assert synthesizer_system.startswith("You are the Synthesizer")
     assert "Delete the root" in synthesizer_prompt
+    assert validation_system.startswith("You are the Code Validation Generator")
     assert critic_system.startswith("You are the Critic")
     assert "CANDIDATE QUESTION TO EVALUATE" in critic_prompt
-    assert handler.sessions == ["exam-1", "exam-1"]
+    assert handler.sessions == ["exam-1", "exam-1", "exam-1"]
 
 
 def test_retry_prompts_are_captured_with_the_critic_feedback(
@@ -116,10 +143,12 @@ def test_retry_prompts_are_captured_with_the_critic_feedback(
     )
     llm = MockLLMClient(custom_responses=[draft, rejection, draft, acceptance])
 
-    run_slot_synthesis(slot, anchor, llm=llm)
+    run_slot_synthesis(slot, anchor, llm=llm, validation_llm=MockLLMClient())
 
-    assert len(handler.prompts) == 4
-    assert "The index is wrong." in handler.prompts[2][1]
+    # Each attempt runs the Synthesizer, the validation code node, then the Critic.
+    assert len(handler.prompts) == 6
+    second_draft_prompt = handler.prompts[3][1]
+    assert "The index is wrong." in second_draft_prompt
 
 
 def test_exam_run_groups_every_slot_under_the_exam_id(
@@ -129,9 +158,14 @@ def test_exam_run_groups_every_slot_under_the_exam_id(
         exam_id="exam-9", target_course="COMP-251", total_marks=10, slots=[slot, slot]
     )
 
-    synthesize_exam_slots(blueprint, {"anchor-1": anchor}, llm=MockLLMClient())
+    synthesize_exam_slots(
+        blueprint,
+        {"anchor-1": anchor},
+        llm=MockLLMClient(),
+        validation_llm=MockLLMClient(),
+    )
 
-    assert handler.sessions == ["exam-9"] * 4
+    assert handler.sessions == ["exam-9"] * 6
 
 
 def test_classifier_run_captures_the_page_prompt(
@@ -222,6 +256,11 @@ document = SourceDocument(
 )
 classifier = ClassifierAgent(llm=MockLLMClient(), clef=ClefClient.__wrapped__())
 asyncio.run(run_classifier(document, classifier=classifier, session_id="classify"))
+
+class SkippedExecutor:
+    def prepare_and_execute(self, question):
+        return CodeSandboxResult(skipped=True, status="SKIPPED")
+
 run_slot_synthesis(
     BlueprintSlot(
         slot_number=1,
@@ -237,6 +276,7 @@ run_slot_synthesis(
         raw_text="Q1 (4 marks). Define a heap.",
     ),
     llm=MockLLMClient(),
+    code_executor=SkippedExecutor(),
     session_id="synthesize",
 )
 langfuse_client.flush()

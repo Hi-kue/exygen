@@ -15,6 +15,7 @@ Holds:
 from __future__ import annotations
 
 from pydantic import BaseModel, Field
+
 from src.schemas.general import DifficultyLevel
 from src.schemas.question import ExtractedQuestion, GeneratedQuestion
 from src.schemas.validation import ValidationReport

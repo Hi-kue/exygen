@@ -3,7 +3,7 @@
 This is the only graph in the agent. It takes one exam from a source file to reviewed
 questions:
 
-    entry -> ingest -> structure -> classifier -> planner -> synthesizer <-> critic
+    entry -> ingest -> structure -> classifier -> planner -> synthesizer <-> validation_code -> code_executor <-> critic
 
 - Entry: starts the run at the first stage with work to do
 - Ingest: extracts the file with Docling and reads its figures with a vision model
@@ -11,12 +11,15 @@ questions:
 - Classifier: tags each question with its format, topic, archetype and difficulty
 - Planner: turns the tagged questions into a blueprint, deterministically
 - Synthesizer: writes an original question for a slot, anchored to an exemplar
+- Validation code: derives the program to run when a draft embeds no code
+- Code executor: prepares the draft's code and runs it through the sandbox
 - Critic: checks the draft for correctness, solvability and style alignment
 
 The agents hand off only through 'Command': every node returns its state update together
 with the node to run next, so the graph has a single static edge from START and no
-conditional edges. The nodes live in 'src.agents.nodes'. The Synthesizer and Critic work
-through the blueprint one slot at a time, within this one graph.
+conditional edges. The nodes live in 'src.agents.nodes'. The Synthesizer, Validation
+code, Code executor and Critic work through the blueprint one slot at a time, within this
+one graph.
 
 Tracing:
 Each run is one Langfuse trace in the exam's session. 'run_exygen' and the other 'run_*'
@@ -41,13 +44,16 @@ from src.agents.classifier.vision import FigureReader
 from src.agents.critic.base import CriticAgent
 from src.agents.llm_client import get_chat_model, get_vision_model
 from src.agents.nodes.classifier import create_classifier_node, create_structure_node
+from src.agents.nodes.code_executor import create_code_executor_node
 from src.agents.nodes.critic import create_critic_node
 from src.agents.nodes.entry import entry_node
 from src.agents.nodes.ingest import create_ingest_node
 from src.agents.nodes.planner import create_planner_node
 from src.agents.nodes.slots import DEFAULT_MAX_ATTEMPTS, first_slot_state
 from src.agents.nodes.synthesizer import create_synthesizer_node
+from src.agents.nodes.validation_code import create_validation_code_node
 from src.agents.planner.base import ExamPlanner
+from src.agents.sandbox.code_sandbox_agent import CodeSandboxAgent
 from src.agents.schemas import (
     AnchorQuestion,
     BlueprintSlot,
@@ -74,8 +80,10 @@ def create_exygen_graph(
     classifier: ClassifierAgent | None = None,
     synthesizer: QuestionSynthesizerAgent | None = None,
     critic: CriticAgent | None = None,
+    code_executor: CodeSandboxAgent | None = None,
     llm: BaseChatModel | None = None,
     vision_llm: BaseChatModel | None = None,
+    validation_llm: BaseChatModel | None = None,
 ) -> Any:
     """Builds and compiles the Exygen graph.
 
@@ -83,20 +91,24 @@ def create_exygen_graph(
         classifier: The Classifier to use, instead of building one.
         synthesizer: The Synthesizer to use, instead of building one.
         critic: The Critic to use, instead of building one.
+        code_executor: The code sandbox agent to use, instead of building one.
         llm: The chat model for the agents it builds. Defaults to 'get_chat_model'.
         vision_llm: The model that reads figures. Defaults to 'get_vision_model'.
+        validation_llm: The model that derives validation programs. Defaults to 'llm'.
 
     Returns:
         The compiled graph.
     """
     chat_model = llm or get_chat_model()
     figure_llm = vision_llm if vision_llm is not None else get_vision_model()
+    code_validation_llm = validation_llm or chat_model
 
     graph_builder = StateGraph(state_schema=ExygenState)
 
     classifier_agent = classifier or ClassifierAgent(llm=chat_model)
     synthesizer_agent = synthesizer or QuestionSynthesizerAgent(llm=chat_model)
     critic_agent = critic or CriticAgent(llm=chat_model)
+    code_executor_agent = code_executor or CodeSandboxAgent(llm=chat_model)
 
     graph_builder.add_edge(START, "entry")
     graph_builder.add_node("entry", entry_node)
@@ -105,6 +117,12 @@ def create_exygen_graph(
     graph_builder.add_node("classifier", create_classifier_node(classifier_agent))
     graph_builder.add_node("planner", create_planner_node(ExamPlanner()))
     graph_builder.add_node("synthesizer", create_synthesizer_node(synthesizer_agent))
+    graph_builder.add_node(
+        "validation_code", create_validation_code_node(code_validation_llm)
+    )
+    graph_builder.add_node(
+        "code_executor", create_code_executor_node(code_executor_agent)
+    )
     graph_builder.add_node("critic", create_critic_node(critic_agent))
 
     return graph_builder.compile()
@@ -130,8 +148,10 @@ async def run_exygen(
     classifier: ClassifierAgent | None = None,
     synthesizer: QuestionSynthesizerAgent | None = None,
     critic: CriticAgent | None = None,
+    code_executor: CodeSandboxAgent | None = None,
     llm: BaseChatModel | None = None,
     vision_llm: BaseChatModel | None = None,
+    validation_llm: BaseChatModel | None = None,
 ) -> ExygenState:
     """Runs one exam through the graph, as one trace in the exam's Langfuse session.
 
@@ -149,8 +169,10 @@ async def run_exygen(
         classifier: The Classifier to use, instead of building one.
         synthesizer: The Synthesizer to use, instead of building one.
         critic: The Critic to use, instead of building one.
+        code_executor: The code sandbox agent to use, instead of building one.
         llm: The chat model for the agents it builds.
         vision_llm: The model that reads figures.
+        validation_llm: The model that derives validation programs. Defaults to 'llm'.
 
     Returns:
         The final state, including the anchors, blueprint, questions, evaluations and
@@ -187,8 +209,10 @@ async def run_exygen(
         classifier=classifier,
         synthesizer=synthesizer,
         critic=critic,
+        code_executor=code_executor,
         llm=llm,
         vision_llm=vision_llm,
+        validation_llm=validation_llm,
     )
     with langfuse_client.trace_run(EXAM_TRACE_NAME, session_id=session):
         return await compiled_graph.ainvoke(
@@ -232,7 +256,9 @@ def synthesize_exam_slots(
     max_attempts: int = DEFAULT_MAX_ATTEMPTS,
     synthesizer: QuestionSynthesizerAgent | None = None,
     critic: CriticAgent | None = None,
+    code_executor: CodeSandboxAgent | None = None,
     llm: BaseChatModel | None = None,
+    validation_llm: BaseChatModel | None = None,
     session_id: str | None = None,
 ) -> tuple[list[SynthesizedQuestion], list[CriticEvaluation]]:
     """Runs an existing blueprint through the graph's slot loop.
@@ -243,7 +269,9 @@ def synthesize_exam_slots(
         max_attempts: How many drafts one slot may use.
         synthesizer: The Synthesizer to use, instead of building one.
         critic: The Critic to use, instead of building one.
+        code_executor: The code sandbox agent to use, instead of building one.
         llm: The chat model for the agents it builds.
+        validation_llm: The model that derives validation programs. Defaults to 'llm'.
         session_id: The Langfuse session. Defaults to the blueprint's exam id.
 
     Returns:
@@ -269,7 +297,11 @@ def synthesize_exam_slots(
     }
 
     compiled_graph = create_exygen_graph(
-        synthesizer=synthesizer, critic=critic, llm=llm
+        synthesizer=synthesizer,
+        critic=critic,
+        code_executor=code_executor,
+        llm=llm,
+        validation_llm=validation_llm,
     )
     with langfuse_client.trace_run(EXAM_TRACE_NAME, session_id=session):
         final_state = compiled_graph.invoke(
@@ -284,7 +316,9 @@ def run_slot_synthesis(
     max_attempts: int = DEFAULT_MAX_ATTEMPTS,
     synthesizer: QuestionSynthesizerAgent | None = None,
     critic: CriticAgent | None = None,
+    code_executor: CodeSandboxAgent | None = None,
     llm: BaseChatModel | None = None,
+    validation_llm: BaseChatModel | None = None,
     session_id: str | None = None,
 ) -> tuple[SynthesizedQuestion, CriticEvaluation]:
     """Runs a single slot through the graph's slot loop."""
@@ -300,7 +334,9 @@ def run_slot_synthesis(
         max_attempts=max_attempts,
         synthesizer=synthesizer,
         critic=critic,
+        code_executor=code_executor,
         llm=llm,
+        validation_llm=validation_llm,
     )
     return questions[0], evaluations[0]
 

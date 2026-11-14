@@ -1,7 +1,7 @@
 ---
 title: Architecture
 date: Saturday 24th October 2026 18:40:00
-modified_date: Tuesday 3rd November 2026 12:40:00
+modified_date: Thursday 12th November 2026 12:00:00
 summary: The Exygen agent pipeline, monorepo layout, and planned production deployment on Cloudflare Workers and VMs managed by Xen Orchestra.
 tags:
     - architecture
@@ -223,7 +223,7 @@ Horizontal API replication and API load balancing can be added later if capacity
 
 | Service | Purpose | Settings |
 | --- | --- | --- |
-| OpenRouter | LLM calls for the Classifier, Synthesizer, and Critic, and vision calls for figures | `AGENT_OPENROUTER_*`, `AGENT_VISION_*` |
+| OpenRouter | LLM calls for the Classifier, Synthesizer, code executor, and Critic, and vision calls for figures | `AGENT_OPENROUTER_*`, `AGENT_VISION_*` |
 | Cloudflare Workers AI | Clef classification | `CF_*`, `AGENT_CLEF_*` |
 | Langfuse | Agent traces | `LANGFUSE_*` |
 
@@ -332,7 +332,7 @@ With one job per VM, N sandbox VMs run at most N jobs at once.
 
 #### Using the Result
 
-The Critic must take `code_sandbox_passed` from real execution before Exygen reports code as checked. If the sandbox is unavailable, times out, or returns an infrastructure error, the result must stay `None` (not run). It must never become `true`. Today it is always `None`, because the sandbox does not exist.
+The Critic must take `code_sandbox_passed` from real execution before Exygen reports code as checked. If the sandbox is unavailable, times out, or returns an infrastructure error, the result must stay `None` (not run). It must never become `true`. The graph's `code_executor` node now runs drafts through the local Judge0 service before the Critic, so a reachable sandbox records a real pass or fail. This section still describes the planned horizontally scaled sandbox cluster; it is not deployed.
 
 ### Sandbox Load Balancing: HAProxy
 
@@ -542,7 +542,7 @@ Exygen has no production deployment to move. This plan takes it from local devel
 | 3. Database | Provision `db-01`, roles, backups, and monitoring | A backup has been restored successfully |
 | 4. API | Provision `api-01`, deploy the container, and configure the Tunnel and DNS | `GET /health` succeeds through Cloudflare, and no origin port is publicly reachable |
 | 5. Web | Add the Worker configuration, and deploy the development and then production environments | The four screens work end to end against the deployed API |
-| 6. Sandboxes | Build the worker service, evaluate gVisor, deploy HAProxy and at least two sandbox VMs, and connect the Critic to real results | Isolation tests pass, and a failed worker is removed from rotation |
+| 6. Sandboxes | Build the worker service, evaluate gVisor, deploy HAProxy and at least two sandbox VMs, and point the graph's `code_executor` at the cluster instead of local Judge0 | Isolation tests pass, and a failed worker is removed from rotation |
 | 7. Production readiness | Complete monitoring, logging, load tests, and a disaster recovery rehearsal | Measured capacity and recovery results are recorded |
 
 Rollback at each phase is to keep or restore the previous state: revert the Worker version, revert the API image, or restore DNS. The local deterministic demo remains the fallback and must keep working throughout.
@@ -569,7 +569,7 @@ Rollback at each phase is to keep or restore the previous state: revert the Work
 
 - **Operational load**: self-hosting makes the team responsible for hosts, patching, backups, and recovery, which a managed provider would otherwise handle.
 - **Project scope**: the blueprint's `.agents/index.md` rule 10 limits infrastructure to what the end-to-end workflow needs, and its MVP stores demo metadata in local files or SQLite. This topology goes beyond the MVP, so the local demo must not depend on it.
-- **False verification**: until real execution exists, `code_sandbox_passed` stays `None` and code questions stay `unverified`. A non-code question marked `verified` has been approved only by the Critic LLM. The deterministic demo still prints a hard-coded `verified` result. See [Orchestrator](agent/reference.md#orchestrator).
+- **False verification**: the `code_executor` node records a real sandbox result for drafts it can prepare, but a pass only shows that the prepared code runs. It does not independently confirm the drafted answer, so `code_writing` questions stay `unverified`, and an unavailable Judge0 leaves `code_sandbox_passed` at `None`. A non-code question marked `verified` has been approved only by the Critic LLM. The deterministic demo still prints a hard-coded `verified` result. See [Orchestrator](agent/reference.md#orchestrator).
 - **Sandbox escape**: running untrusted code carries inherent risk. Isolation must be tested, not assumed.
 
 ## Related Pages

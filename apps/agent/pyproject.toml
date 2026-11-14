@@ -12,6 +12,9 @@ dependencies = [
     "rich>=15.0.0",
     "docling[rapidocr]>=2.143.1",
     "httpx>=0.28.1",
+    "pytest>=9.1.1",
+    "rich>=15.0.0",
+    "docling[rapidocr]>=2.143.1",
     "langchain>=1.4.7",
     "langchain-core>=1.7.0",
     "langchain-openrouter>=0.2.9",
@@ -19,9 +22,9 @@ dependencies = [
     "langfuse>=5.0.4",
     "langfuse-sdk>=1.0.0",
     "langfuse-mcp>=0.14.0",
-    "ruff>=0.17.3",
-    "pytest>=9.1.1",
-    "ipython>=9.17.1",
+    # HTTP client for the Judge0 submission API.
+    "httpx>=0.27.0",
+    "pygments>=2.18.0",
 ]
 
 [project.scripts]

@@ -1,7 +1,7 @@
 ---
 title: Reference
 date: Wednesday 28th October 2026 07:34:00
-modified_date: Tuesday 3rd November 2026 12:40:00
+modified_date: Friday 13th November 2026 12:00:00
 summary: Reference for the exygen-agent package, covering Python modules, data contracts, the LLM client, external clients, tracing, settings, the command line, the orchestrator, and tests.
 tags:
     - agent
@@ -23,8 +23,8 @@ All modules live in `apps/agent/src/` and are imported as `src.<module>`. See [C
 | File | Responsibility | Key classes and functions | Documented in |
 | --- | --- | --- | --- |
 | `agents/graph.py` | The only agent graph, and the functions that run it | `exygen`, `create_exygen_graph()`, `run_exygen()`, `run_classifier()`, `synthesize_exam_slots()`, `run_slot_synthesis()` | [The Exygen Graph](pipeline.md#the-exygen-graph) |
-| `agents/nodes/` | One file per graph node, plus `slots.py` for the slot loop's bookkeeping | `entry_node()`, `create_ingest_node()`, `create_structure_node()`, `create_classifier_node()`, `create_planner_node()`, `create_synthesizer_node()`, `create_critic_node()`, `finish_slot()` | [Node Behavior](pipeline.md#node-behavior) |
-| `agents/schemas.py` | Contracts between the agents, the graph state, and helpers for prompts and Markdown parsing | `ExygenState`, `AnchorQuestion`, `extract_markdown_sections()`, `wrap_source_text()`, `show_measured()` | [Agent Contracts](#agent-contracts) |
+| `agents/nodes/` | One file per graph node, plus `slots.py` for the slot loop's bookkeeping | `entry_node()`, `create_ingest_node()`, `create_structure_node()`, `create_classifier_node()`, `create_planner_node()`, `create_synthesizer_node()`, `create_code_executor_node()`, `create_critic_node()`, `finish_slot()` | [Node Behavior](pipeline.md#node-behavior) |
+| `agents/schemas.py` | Contracts between the agents, the code execution results, the graph state, and helpers for prompts and Markdown parsing | `ExygenState`, `AnchorQuestion`, `CodeSandboxResult`, `SandboxExecutionResult`, `extract_markdown_sections()`, `wrap_source_text()`, `show_measured()` | [Agent Contracts](#agent-contracts) |
 | `agents/llm_client.py` | The chat model factories and the deterministic mock | `get_chat_model()`, `get_vision_model()`, `MockLLMClient`, `create_llm_agent()`, `invoke_llm_agent()`, `ainvoke_llm_agent()` | [LLM Client](#llm-client) |
 | `agents/classifier/base.py`, `prompt.py` | Reads questions out of a document and tags them | `ClassifierAgent`, `infer_reading_mode()`, `source_document_from_extraction()`, `parse_structure_markdown()`, `build_structure_prompt()` | [Stage 1](pipeline.md#stage-1-ingestion-and-classification) |
 | `agents/classifier/vision.py` | Describes figures and transcribes pages with almost no text | `FigureReader`, `figure_text()` | [Figures](pipeline.md#figures) |
@@ -32,6 +32,7 @@ All modules live in `apps/agent/src/` and are imported as `src.<module>`. See [C
 | `agents/synthesizer/base.py`, `prompt.py` | Writes a question for a slot, and parses the Markdown reply | `QuestionSynthesizerAgent`, `build_synthesis_prompt()`, `parse_synthesized_markdown()` | [Synthesizer](pipeline.md#synthesizer) |
 | `agents/critic/base.py`, `prompt.py` | Reviews a draft, and parses the Markdown reply | `CriticAgent`, `build_critic_prompt()`, `parse_critic_markdown()` | [Critic](pipeline.md#critic) |
 | `agents/deterministic.py` | Deterministic fallback agents for the six logical roles, re-exported by `agents/__init__.py` | `ExtractionAgent`, `StyleAnalysisAgent`, `ExamPlanningAgent`, `QuestionGenerationAgent`, `ValidationAgent`, `AssemblyAgent` | [Orchestrator](#orchestrator) |
+| `agents/sandbox/` | The code execution step: prepares runnable files from a question and runs them through Judge0. The `code_executor` node calls it between the Synthesizer and the Critic | `CodeSandboxAgent`, `Judge0Service`, `execute_in_sandbox()` | [Code Execution Sandbox](index.md#code-execution-sandbox) |
 | `orchestrator.py` | Coordinator for the deterministic agents, and the offline synthetic fixtures | `ExamPipelineOrchestrator`, `default_synthetic_documents()` | [Orchestrator](#orchestrator) |
 | `schemas/document.py`, `exam.py`, `question.py`, `profile.py`, `validation.py`, `general.py` | Typed Pydantic contracts for documents, exams, questions, style profiles, and validation | See [General Pipeline Contracts](#general-pipeline-contracts) | [Contracts](#contracts) |
 | `schemas/clients.py` | Pydantic models and constants shared by the three clients. It must not import Docling | `AgentIdentifier`, `DocumentExtraction`, `PageExtraction`, `ExtractedFigure`, `NoulQuestion`, `ChoiceQuestion`, `ScoreQuestion`, `ClefResult` | [Client Contracts](#client-contracts) |
@@ -85,6 +86,8 @@ In these contracts, `None` means a value was not measured: the document did not 
 | 3 | `SynthesizedQuestion` | `slot_number`, `topic`, `format`, `marks`, `difficulty`, `prompt`, `mcq_options`, `solution`, `explanation`, `code_test_cases`, `rationale`, `raw_markdown` | `marks`, `difficulty`, `mcq_options`, `code_test_cases`, `raw_markdown` | Produced by the [Synthesizer](pipeline.md#synthesizer) |
 | 3 | `CriticEvaluation` | `slot_number`, `accepted`, `correctness_status`, `code_sandbox_passed`, `style_alignment_score`, `issues`, `verifier_notes`, `raw_markdown` | `code_sandbox_passed`, `style_alignment_score`, `raw_markdown` | Produced by the [Critic](pipeline.md#critic) |
 | 3 | `CriticFeedback` | `attempt`, `verifier_notes`, `issues`, `style_alignment_score` | `style_alignment_score` | Working memory for rejected attempts |
+| 3 | `SandboxExecutionResult` | `is_success`, `exit_code`, `output`, `error`, `infrastructure_error` | `exit_code`, `output`, `error` | Returned by the [sandbox](index.md#code-execution-sandbox) |
+| 3 | `CodeSandboxResult` | `skipped`, `language`, `status`, `output`, `error`, `files`, `prepared_code`, `needs_regeneration`, `notes` | `language`, `output`, `error`, `files`, `prepared_code`, `notes` | Returned by `CodeSandboxAgent`, and stored in the graph state for the [Code Executor](pipeline.md#node-behavior) |
 
 `MarkdownParseError` is the exception raised when an LLM reply is missing a mandatory section.
 
@@ -96,7 +99,7 @@ In these contracts, `None` means a value was not measured: the document did not 
 | Source file | `source_path`, `course`, `permission_status`, `document_type` |
 | Stage 1 | `document`, `figures`, `structured_questions`, `anchors` |
 | Stage 2 | `blueprint` |
-| Stage 3, each slot | `max_attempts`, `slot_index`, `attempt`, `feedback_history`, `current_question`, `last_draft` |
+| Stage 3, each slot | `max_attempts`, `slot_index`, `attempt`, `feedback_history`, `current_question`, `last_draft`, `code_sandbox_result` |
 | Stage 3, results | `questions`, `evaluations` |
 
 ### Client Contracts
@@ -255,6 +258,9 @@ uv run ruff format --check apps/agent
 | `tests/test_synthesizer.py` | [Synthesizer](pipeline.md#synthesizer) prompt building, multi-line MCQ parsing, non-MCQ optional headers, and `MarkdownParseError` enforcement |
 | `tests/test_critic.py` | [Critic](pipeline.md#critic) verdicts failing closed, status reconciliation, style score parsing, and code never reaching `verified` |
 | `tests/test_synthesis_graph.py` | The [slot loop](pipeline.md#stage-3-synthesis-loop): retries, format-error reprompting that skips the Critic, attempts running out, and several slots. It also holds the live test |
+| `tests/test_code_executor_node.py` | The [code executor](pipeline.md#node-behavior): pass and skipped handoffs, failure feedback, exhausted attempts, an unavailable sandbox, a missing draft, and the Critic recording the sandbox verdict |
+| `tests/test_code_sandbox_agent.py` | `CodeSandboxAgent`: snippet extraction, multi-file Java splitting, generated validation code, skipped steps, and execution failures asking for a new draft |
+| `tests/test_judge0_service.py` | `Judge0Service`: the submission payload, the `additional_files` ZIP, status mapping, auth, and HTTP and connection errors, using `httpx.MockTransport` |
 | `tests/test_llm_chat_model.py` | `MockLLMClient`, fresh message histories, and `get_chat_model()` |
 | `tests/test_cli.py` | The `run` command's options and summary, and the demo as the default |
 | `tests/test_langfuse_capture.py` | Prompts and attribution in traces, offline through the real SDK with an in-memory exporter |

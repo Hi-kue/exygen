@@ -1,13 +1,14 @@
-"""Contracts exchanged by the Classifier, Synthesizer and Critic agents.
+"""Contracts exchanged by the agents and the sandbox they run code in.
 
-This module holds the Pydantic models for the agent boundaries, the shared graph
-state, and the Markdown section extraction used to parse LLM responses.
+This module holds the Pydantic models for the agent boundaries, the code execution
+results, the shared graph state, and the Markdown section extraction used to parse
+LLM responses.
 """
 
 from __future__ import annotations
 
 import re
-from typing import Literal, TypedDict
+from typing import Any, Literal, TypedDict
 
 from pydantic import BaseModel, Field
 
@@ -175,6 +176,54 @@ class SynthesizedQuestion(BaseModel):
     raw_markdown: str | None = None
 
 
+class SandboxExecutionResult(BaseModel):
+    """Typed result of executing code in an isolated Docker sandbox.
+
+    `infrastructure_error` is true when the submission never reached a verdict:
+    Judge0 was unreachable, rejected the request, or the language or file set is not
+    supported. It is false for a compile error, a runtime error, or a timeout, which
+    are verdicts about the submitted code.
+    """
+
+    is_success: bool
+    exit_code: int | None = None
+    output: str | None = None
+    error: str | None = None
+    infrastructure_error: bool = False
+
+
+class CodeSandboxResult(BaseModel):
+    """Authoritative result of preparing and executing code extracted from a question.
+
+    `skipped` is True when the question prompt contained no code snippets AND
+    the LLM determined the output cannot be validated by running code, in
+    which case the code execution step is intentionally ignored.
+    """
+
+    skipped: bool = False
+    language: str | None = None
+    status: Literal["PASS", "FAIL", "SKIPPED"] = "SKIPPED"
+    output: str | None = None
+    error: str | None = None
+    files: dict[str, str] | None = None
+    prepared_code: str | None = None
+    needs_regeneration: bool = False
+    notes: str | None = None
+
+    def model_dump_for_logging(self) -> dict[str, Any]:
+        """Return a logging-friendly dict excluding large code payloads."""
+        return {
+            "skipped": self.skipped,
+            "language": self.language,
+            "status": self.status,
+            "needs_regeneration": self.needs_regeneration,
+            "has_output": bool(self.output),
+            "has_error": bool(self.error),
+            "file_count": len(self.files or {}),
+            "notes": self.notes,
+        }
+
+
 CorrectnessStatus = Literal["verified", "flagged", "unverified"]
 
 
@@ -228,6 +277,9 @@ class ExygenState(TypedDict, total=False):
         feedback_history: The current slot's feedback from rejected drafts.
         current_question: The draft waiting for review.
         last_draft: The current slot's latest draft that could be parsed.
+        validation_code: The program the validation code node derived for the current
+            draft, or None when the draft's own snippets are executed instead.
+        code_sandbox_result: The current draft's code execution result.
         questions: The finished question for each completed slot.
         evaluations: The final evaluation for each completed slot.
     """
@@ -250,5 +302,7 @@ class ExygenState(TypedDict, total=False):
     feedback_history: list[CriticFeedback]
     current_question: SynthesizedQuestion | None
     last_draft: SynthesizedQuestion | None
+    validation_code: str | None
+    code_sandbox_result: CodeSandboxResult | None
     questions: list[SynthesizedQuestion]
     evaluations: list[CriticEvaluation]

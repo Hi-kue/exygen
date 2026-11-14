@@ -14,14 +14,18 @@ from src.agents.graph import (
 )
 from src.agents.llm_client import MockLLMClient, get_chat_model
 from src.agents.planner.base import ExamPlanner
+from src.agents.sandbox.code_sandbox_agent import CodeSandboxAgent
+from src.agents.sandbox.judge0_service import Judge0Service
 from src.agents.schemas import (
     AnchorQuestion,
     BlueprintSlot,
+    CodeSandboxResult,
     CriticEvaluation,
     CriticFeedback,
     ExamBlueprintWithSlots,
     ExygenState,
     MarkdownParseError,
+    SandboxExecutionResult,
     SynthesizedQuestion,
     extract_markdown_sections,
 )
@@ -50,6 +54,8 @@ __all__ = [
     "AssembledExam",
     "BlueprintSlot",
     "ClassifierAgent",
+    "CodeSandboxAgent",
+    "CodeSandboxResult",
     "CriticAgent",
     "CriticEvaluation",
     "CriticFeedback",
@@ -63,10 +69,12 @@ __all__ = [
     "ExtractedQuestion",
     "ExygenState",
     "GeneratedQuestion",
+    "Judge0Service",
     "MarkdownParseError",
     "MockLLMClient",
     "QuestionProvenance",
     "QuestionSynthesizerAgent",
+    "SandboxExecutionResult",
     "SourceDocument",
     "StyleProfile",
     "SynthesizedQuestion",

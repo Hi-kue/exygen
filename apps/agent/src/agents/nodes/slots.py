@@ -29,6 +29,8 @@ def fresh_slot_state() -> dict[str, Any]:
         "feedback_history": [],
         "current_question": None,
         "last_draft": None,
+        "validation_code": None,
+        "code_sandbox_result": None,
     }
 
 

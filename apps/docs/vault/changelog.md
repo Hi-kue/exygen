@@ -2,7 +2,7 @@
 robots: noindex, nofollow
 title: Changelogs
 date: Saturday 24th October 2026 18:40:00
-modified_date: Tuesday 3rd November 2026 12:40:00
+modified_date: Friday 13th November 2026 12:00:00
 summary: Root changelog index for Exygen, listing the latest entry for each component (agent, api, web, platform).
 status: new
 is_index?: true
@@ -33,25 +33,37 @@ Each component keeps its own `changelogs/` folder with one file per release or b
 ## Agent
 
 - **Source**: `apps/agent`, the Python multi-agent pipeline and Pydantic contracts.
-- **Latest**: [261103-B Single Exygen Graph](agent/changelogs/261103-B-exygen-graph.md)
-- **Earlier today**: [261103-A Agent Restructure and Classifier](agent/changelogs/261103-A-agent-restructure.md)
+- **Latest**: [261113-A-sandbox-results-in-schemas](agent/changelogs/261113-A-sandbox-results-in-schemas.md)
 
-### [Unreleased] - 261103-A, 261103-B
+### [Unreleased] - 2026-11-13
+
+#### Changed
+
+`SandboxExecutionResult` and `CodeSandboxResult` moved into `agents/schemas.py` with the other agent contracts, and `agents/sandbox/sandbox_result.py` and `agents/sandbox/code_sandbox_result.py` were deleted. Fields and behavior are unchanged, and `src` still re-exports both models.
+
+### [Unreleased] - 2026-11-12
 
 #### Added
 
-- A deterministic Planner, figure reading through a vision model, and the Classifier.
-- `python -m src run <path>`, which runs one exam through the graph.
+The `code_executor` node runs `CodeSandboxAgent` between the synthesizer and the critic. Code failures return to the synthesizer with the error and sandbox output until the slot's attempts run out, then the slot is flagged. The critic records a real `code_sandbox_passed` result, and an unavailable Judge0 is treated as a skipped run rather than a pass.
 
-#### Changed/Refactored
-
-- One `exygen` graph takes an exam from a source file to reviewed questions, as one Langfuse trace in the exam's session. Stage 4 does not exist yet, so a run does not produce an exam.
-- The agents live in `src/agents/`, contracts in `src/schemas/`, and `ChatOpenRouter` replaces the custom LLM client.
-- A value that was not measured stays `None`. A question is either verified and accepted, or it is not, and code cannot be verified without a real sandbox run.
+### [Unreleased] - 2026-11-11
 
 #### Fixed
 
-- The Critic no longer reads a negated verdict as accepted, or invents a style score or a sandbox result.
+`import src` works again: the committed conflict markers in `src/__init__.py` are gone, the circular import through `BaseLLMClient` is removed, and `settings.py` again declares the `cloudflare`, `docling`, classifier, vision, and Clef groups that the clients read. The sandbox code moved to `src/agents/sandbox/`, and every module imports as `src.<module>`.
+
+### [Unreleased] - 2026-11-08
+
+#### Changed/Refactored
+
+The code sandbox now executes through a self-hosted Judge0 instance instead of Daytona. `Judge0Service` posts submissions with `wait=true`, maps Python to language id `71` and Java to `62`, and sends extra Java files as an `additional_files` ZIP. `Judge0Settings` reads `JUDGE0_*` values from `apps/agent/.env`.
+
+### [Unreleased] - 2026-11-07
+
+#### Added
+
+A `CodeSandboxAgent` between the synthesizer and the critic executes generated code in an isolated Daytona sandbox. Failures return to the synthesizer as retry feedback, and `DaytonaSettings` reads `DAYTONA_*` values from `apps/agent/.env`.
 
 ---
 
@@ -72,8 +84,19 @@ Each component keeps its own `changelogs/` folder with one file per release or b
 ## Platform
 
 - **Source**: Monorepo configuration (Nx, uv, pnpm), root scripts, and `apps/docs`.
-- **Latest**: [261101-C Docs Reorganization](platform/changelogs/261101-C-docs-reorganization.md)
-- **Earlier today**: [261101-B Deployment Architecture](platform/changelogs/261101-B-deployment-architecture.md), [261101-A Makefile](platform/changelogs/261101-A-makefile.md)
+- **Latest**: [2026-11-08-changelog-judge0-local-stack](platform/changelogs/2026-11-08-changelog-judge0-local-stack.md)
+
+### [Unreleased] - 2026-11-08
+
+#### Changed/Refactored
+
+The local sandbox stack is now `docker/judge0/`, based on Judge0 v1.13.1 with a pinned image, a trimmed `judge0.conf`, and a README covering start, verification, and troubleshooting. The previous `docker/daytona/` stack was removed.
+
+### [Unreleased] - 2026-11-07
+
+#### Added
+
+A vendored self-hosted Daytona stack under `docker/daytona/` so the code sandbox runs locally with one compose command. The setup patches the removed MinIO image and the toolbox URL that Windows cannot resolve.
 
 ### [Unreleased] - 261101-A, 261101-B, 261101-C
 

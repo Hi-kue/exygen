@@ -32,7 +32,7 @@ By combining traceable document extraction with explicit validation boundaries i
     - [Monorepo Layout](#monorepo-layout)
     - [Applications](#applications)
   - [Installation](#installation)
-    - [Make Commands](#make-commands)
+    - [Local Code Sandbox (Judge0)](#local-code-sandbox-judge0)
     - [Common Nx Commands](#common-nx-commands)
     - [Workspace Scripts (`scripts/`)](#workspace-scripts-scripts)
   - [Documentation](#documentation)
@@ -105,32 +105,18 @@ pnpm install
 uv sync --all-packages
 ```
 
-### Make Commands
+### Local Code Sandbox (Judge0)
 
-The root `Makefile` wraps the workspace scripts and Nx targets. It needs GNU Make, which Windows does not include (`winget install ezwinports.make`). It calls `scripts/*.sh` on Linux and macOS, and `scripts/win/*.ps1` on Windows.
+The `CodeSandboxAgent` executes generated code in an isolated sandbox. Locally,
+that sandbox runs on a self-hosted Judge0 instance:
 
 ```bash
-# List every command
-make help
-
-# Unblock scripts, write missing .env files, install dependencies
-make setup
-
-# Clean everything, reinstall, build, and run agent, api, and web
-make dev
-
-# Same chain for one app
-make dev-web
-
-# Run without cleaning or building
-make run
-make run APPS="api web"
-
-# Run tests across all projects
-make test
+docker compose -f docker/judge0/docker-compose.yml up -d
 ```
 
-`make dev` deletes `node_modules` and `.venv` on every run and reinstalls them. Use `make run` to restart without that cost. The `tui` commands stop with an error until `apps/tui` exists, and `make migrate` does nothing until Exygen has a database.
+The agent defaults to `JUDGE0_API_URL="http://localhost:2358"`; override it in
+`apps/agent/.env` if needed. See [`docker/judge0/README.md`](./docker/judge0/README.md)
+for setup, verification, and troubleshooting steps.
 
 ### Common Nx Commands
 

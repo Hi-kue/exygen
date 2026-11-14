@@ -14,6 +14,7 @@ from src.agents.nodes.slots import (
     finish_slot,
 )
 from src.agents.schemas import (
+    CodeSandboxResult,
     CriticEvaluation,
     CriticFeedback,
     ExygenState,
@@ -21,6 +22,31 @@ from src.agents.schemas import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _with_sandbox_result(
+    evaluation: CriticEvaluation, result: CodeSandboxResult | None
+) -> CriticEvaluation:
+    """Record what code execution proved, in place of the model's guess.
+
+    The model never runs code, so a real execution result is the only source for
+    this field. A skipped run measured nothing and leaves it at None.
+    """
+    if result is None or result.skipped:
+        return evaluation
+
+    evaluation.code_sandbox_passed = result.status == "PASS"
+    verdict = "PASSED" if result.status == "PASS" else "FAILED"
+    detail = (
+        f"Sandbox output: {result.output or '(empty)'}"
+        if result.status == "PASS"
+        else f"Error: {result.error or 'failed'}"
+    )
+    note = f"Code execution {verdict} (language={result.language}). {detail}"
+    evaluation.verifier_notes = "\n".join(
+        line for line in (evaluation.verifier_notes, note) if line
+    )
+    return evaluation
 
 
 def create_critic_node(
@@ -80,6 +106,8 @@ def create_critic_node(
             evaluation.correctness_status,
             evaluation.style_alignment_score,
         )
+
+        evaluation = _with_sandbox_result(evaluation, state.get("code_sandbox_result"))
 
         # Verified is done. Unverified means it could not be checked, so another draft
         # would not change that: it is kept for human review.

@@ -1,7 +1,7 @@
 ---
 title: Pipeline
 date: Wednesday 28th October 2026 07:35:00
-modified_date: Tuesday 3rd November 2026 12:40:00
+modified_date: Thursday 12th November 2026 12:00:00
 summary: The stages of the LLM-backed agent pipeline in the single Exygen graph, with each stage's inputs, outputs, retry behavior, and implementation status.
 tags:
     - agent
@@ -21,7 +21,7 @@ The agent pipeline has four stages. Stages 1 to 3 run in one LangGraph graph, `e
 | --- | --- | --- | --- | --- |
 | 1 | [Ingestion and Classification](#stage-1-ingestion-and-classification) | Docling, vision model, Classifier, Clef | Implemented and tested | Yes, on one exam. See [Observed Runs](../evaluation.md#observed-runs) |
 | 2 | [Planning](#stage-2-planning) | Planner, deterministic Python | Implemented and tested | Yes, on the same exam |
-| 3 | [Synthesis Loop](#stage-3-synthesis-loop) | Synthesizer, Critic | Implemented and tested | No. Tested with the mock, plus one live test on a sample slot |
+| 3 | [Synthesis Loop](#stage-3-synthesis-loop) | Synthesizer, code executor, Critic | Implemented and tested | No. Tested with the mock, plus one live test on a sample slot |
 | 4 | [Assembly and Provenance](#stage-4-assembly-and-provenance) | None | Not implemented | No |
 
 ## The Exygen Graph
@@ -40,8 +40,11 @@ flowchart LR
     Classifier -->|"stop_after classifier"| End((END))
     Planner --> Synth
     Planner -->|"stop_after planner<br/>or nothing to plan"| End
-    Synth -->|"draft parsed"| Critic["critic"]
+    Synth -->|"draft parsed"| Exec["code_executor<br/>Judge0"]
     Synth -->|"format error"| Synth
+    Exec -->|"PASS or skipped"| Critic["critic"]
+    Exec -->|"FAIL, attempts left"| Synth
+    Exec -->|"FAIL, attempts ran out"| End
     Critic -->|"flagged, attempts left"| Synth
     Critic -->|"slot finished, more slots"| Synth
     Critic -->|"last slot finished"| End
@@ -76,8 +79,9 @@ Handoffs follow the `Command` primitive described in the LangGraph [Graph API](h
 | `structure` | `classifier` | Reads the questions out of the document | `structured_questions`, `warnings` |
 | `classifier` | `planner`, `END` | Tags each question | `anchors`, `warnings` |
 | `planner` | `synthesizer`, `END` | Builds the blueprint, and starts the slot loop | `blueprint`, `warnings`, `slot_index`, `attempt`, `feedback_history`, `current_question`, `last_draft`, `questions`, `evaluations` |
-| `synthesizer` | `critic`, `synthesizer`, `END` | Writes a draft and hands it to `critic`. On `MarkdownParseError` it records a `FORMAT ERROR`, skips the Critic, and retries. When attempts run out it finishes the slot with the last parsed draft, or a flagged placeholder if there is none | `current_question`, `last_draft`, and on a format error `feedback_history` and `attempt` |
-| `critic` | `synthesizer`, `END` | Finishes the slot when the draft is accepted or `unverified`. Retries a `flagged` draft until attempts run out, with its feedback in `feedback_history`. A malformed Critic reply counts as `flagged` | `feedback_history`, `attempt`, or the slot's results |
+| `synthesizer` | `code_executor`, `synthesizer`, `END` | Writes a draft and hands it to `code_executor`. On `MarkdownParseError` it records a `FORMAT ERROR`, skips code execution and the Critic, and retries. When attempts run out it finishes the slot with the last parsed draft, or a flagged placeholder if there is none | `current_question`, `last_draft`, and on a format error `feedback_history` and `attempt` |
+| `code_executor` | `critic`, `synthesizer`, `END` | Prepares the draft's code and runs it through Judge0, then hands a `PASS` or skipped run to `critic`. A `FAIL` records the error as feedback and retries until attempts run out, then finishes the slot as `flagged` with `code_sandbox_passed=False`. An unavailable sandbox is recorded as skipped so the draft still reaches the Critic | `code_sandbox_result`, and on a failure `feedback_history`, `attempt`, `current_question`, or the slot's results |
+| `critic` | `synthesizer`, `END` | Finishes the slot when the draft is accepted or `unverified`. Retries a `flagged` draft until attempts run out, with its feedback in `feedback_history`. A malformed Critic reply counts as `flagged`. Copies the sandbox result into `code_sandbox_passed` and the verifier notes | `feedback_history`, `attempt`, or the slot's results |
 
 `finish_slot()` in `nodes/slots.py` adds the slot's question and evaluation to the results, then moves to the next slot or ends the run. Each slot starts with its own attempts and feedback. A question is recorded whatever its evaluation says, so a reader must check `accepted` and `correctness_status` for each one.
 
@@ -162,7 +166,7 @@ The Planner copies the source exam's shape. It does not balance topics or marks,
 
 ## Stage 3: Synthesis Loop
 
-Stage 3 works through the blueprint one slot at a time. The Synthesizer writes an original question anchored to the exemplar, and the Critic checks correctness, solvability, and style alignment. A flagged or malformed draft loops back to the Synthesizer with working-memory feedback, for up to `max_attempts = 3` drafts per slot.
+Stage 3 works through the blueprint one slot at a time. The Synthesizer writes an original question anchored to the exemplar, the code executor prepares and runs its code, and the Critic checks correctness, solvability, and style alignment. A failed execution, a flagged draft, or a malformed draft loops back to the Synthesizer with working-memory feedback, for up to `max_attempts = 3` attempts per slot.
 
 To prevent code indentation and LaTeX math (such as `$O(n \log n)$`) from breaking JSON escaping, both agents return structured Markdown sections, which are validated and parsed into Pydantic models. `extract_markdown_sections()` in `agents/schemas.py` handles section extraction.
 
@@ -223,8 +227,8 @@ The result is binary: `accepted` is true only when the status is `verified`.
 !!! warning "What `verified` means today"
     A `verified` question has been approved only by the Critic LLM reading it. No separate check confirms the answer, so treat it as reviewed, and have a person check it before use. The style score is also the model's opinion, not a measurement, and it does not affect the verdict.
 
-!!! warning "No code is executed"
-    Code cannot reach `verified` without a real sandbox run, and Exygen has no sandbox yet. `code_sandbox_passed` is always `None`. A reply containing `## CODE_SANDBOX_PASSED` is ignored, the prompt no longer asks for it, and an approved `code_writing` draft gets the note `Reviewed by the LLM, not executed, so it is not verified.` Only `code_writing` counts as code, so code inside another format is not held back this way. See [Sandboxes](../architecture.md#sandboxes-horizontally-scaled-vms) for the plan.
+!!! warning "What code execution proves"
+    A passing sandbox run proves that the code prepared from the question's prompt compiles and runs; it does not independently check that the drafted answer is correct. `code_sandbox_passed` is `True` only for a real pass and `None` when the run was skipped. A `code_writing` draft stays `unverified` for human review. If Judge0 is unavailable, the draft is treated as skipped rather than silently passing. See [Sandboxes](../architecture.md#sandboxes-horizontally-scaled-vms) for the plan.
 
 ## Stage 4: Assembly and Provenance
 
